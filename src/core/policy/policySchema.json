@@ -1,0 +1,30 @@
+{
+  "roleHierarchy": ["User", "Member", "Moderator", "Admin"],
+  "rolePermissions": {
+    "User": {
+      "session": ["LOGIN"],
+      "documents": ["READ"]
+    },
+    "Member": {
+      "documents": ["WRITE"]
+    },
+    "Moderator": {
+      "documents": ["UPDATE"],
+      "users": ["READ"],
+      "policies": ["READ"]
+    },
+    "Admin": {
+      "documents": ["DELETE"],
+      "users": ["WRITE", "UPDATE", "DELETE"],
+      "policies": ["WRITE", "UPDATE", "DELETE"],
+      "audit_logs": ["READ"]
+    }
+  },
+  "resourceClearanceDefaults": {
+    "session": 1,
+    "documents": 1,
+    "users": 3,
+    "policies": 4,
+    "audit_logs": 5
+  }
+}

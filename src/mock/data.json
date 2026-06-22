@@ -1,0 +1,672 @@
+{
+  "tenants": {
+    "apple_corp": {
+      "tenant_id": "apple_corp",
+      "name": "Apple Corp",
+      "subdomain": "applecorp",
+      "plan": "enterprise",
+      "status": "active",
+      "created_at": "2024-01-15T09:00:00.000Z",
+      "settings": {
+        "mfa_required_roles": [
+          "Admin"
+        ],
+        "max_users": 50
+      }
+    },
+    "orange_teck": {
+      "tenant_id": "orange_teck",
+      "name": "Orange Teck",
+      "subdomain": "orangeteck",
+      "plan": "growth",
+      "status": "active",
+      "created_at": "2024-03-22T09:00:00.000Z",
+      "settings": {
+        "mfa_required_roles": [
+          "Admin",
+          "Moderator"
+        ],
+        "max_users": 25
+      }
+    },
+    "banana_republic": {
+      "tenant_id": "banana_republic",
+      "name": "Banana Republic",
+      "subdomain": "bananarepublic",
+      "plan": "starter",
+      "status": "active",
+      "created_at": "2024-06-10T09:00:00.000Z",
+      "settings": {
+        "mfa_required_roles": [
+          "Admin"
+        ],
+        "max_users": 100
+      }
+    }
+  },
+  "users": [
+    {
+      "id": "edb2b334-29db-444f-818f-0d497cd78388",
+      "email": "admin@applecorp.test",
+      "password_hash": "$2b$12$wDLVrgbJnkMx6LE.OtssYNpJ0t7hkG26s6uCDmXi4tse82SbQpmr6",
+      "_mock_password_do_not_use_in_prod": "Sup3rSecret!Demo -- demo-only login password for local testing, NOT derived from password_hash above and not a real credential.",
+      "tenant_id": "apple_corp",
+      "role": "Admin",
+      "clearance": 5,
+      "department": "Executive Operations",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "d4da3ff5-74c4-4429-b815-c3ea976c951a",
+      "email": "user1.apple_corp@example.test",
+      "password_hash": "$2b$12$EkFXZH0dQyUb5uQvI7FgRnhHd/aS5hRy/XT3/BAmPPVPDwy2VkT.B",
+      "tenant_id": "apple_corp",
+      "role": "Admin",
+      "clearance": 5,
+      "department": "Engineering",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "ccd91c35-da85-4162-adb4-f4bfcaa745da",
+      "email": "user2.apple_corp@example.test",
+      "password_hash": "$2b$12$XSMAa2oGh/omB/bvQdXrXw19am6aHsKW1Rczn/7KfUjsRWRTP1XtG",
+      "tenant_id": "apple_corp",
+      "role": "Moderator",
+      "clearance": 4,
+      "department": "Finance",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "d141ecef-0795-409f-8d4a-1a8a0fb6b827",
+      "email": "user3.apple_corp@example.test",
+      "password_hash": "$2b$12$2i.snnXRWQfZlp6.pLEDPj6HyG7kKHczWvK/eOsU991fIHDVxQI3V",
+      "tenant_id": "apple_corp",
+      "role": "Member",
+      "clearance": 3,
+      "department": "Operations",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "da5042a4-6c83-4e01-959a-d30649e77ff0",
+      "email": "user4.apple_corp@example.test",
+      "password_hash": "$2b$12$Bgms4TGDS5EJbaJAkpdF7vr5a./rggB2ojfGGArKsgJt.pxTwA1u9",
+      "tenant_id": "apple_corp",
+      "role": "User",
+      "clearance": 1,
+      "department": "Human Resources",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "159a879e-e129-4a26-b961-bb0ef23bf464",
+      "email": "user5.apple_corp@example.test",
+      "password_hash": "$2b$12$WssLR7FoCartoiJXPm4tsyeH7sVOgOnr7WGiZ/5Fg5BDH4Je7pZmp",
+      "tenant_id": "apple_corp",
+      "role": "Member",
+      "clearance": 2,
+      "department": "Customer Success",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "16efca51-642f-4d73-b7f2-dea739787494",
+      "email": "user6.apple_corp@example.test",
+      "password_hash": "$2b$12$crz3XPllU0NqqF.xo7lCiPIYXc4eJTIlVDuC50GSTgtrpD1MXqj5t",
+      "tenant_id": "apple_corp",
+      "role": "User",
+      "clearance": 3,
+      "department": "Marketing",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "d3b4b8a6-50af-4fde-8475-14e3ed9aa25a",
+      "email": "user7.apple_corp@example.test",
+      "password_hash": "$2b$12$J20yR1WzHdVT6fICZ8AzsOlLFN2GTCN/tCBztPKC09jywdxuQTf3B",
+      "tenant_id": "apple_corp",
+      "role": "Member",
+      "clearance": 1,
+      "department": "Legal & Compliance",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "8304cf19-f07e-41ae-9d14-dd1c26261fcf",
+      "email": "user8.apple_corp@example.test",
+      "password_hash": "$2b$12$xoyb.Eadp3bOZvQE8ryJLgn7DqiPxRNab1xdDFMYMTQJUsreXTPGz",
+      "tenant_id": "apple_corp",
+      "role": "User",
+      "clearance": 2,
+      "department": "IT Security",
+      "mfa_verified": false,
+      "account_locked": true
+    },
+    {
+      "id": "480ebc01-cb51-4ef7-a692-d67a11b4a457",
+      "email": "user9.apple_corp@example.test",
+      "password_hash": "$2b$12$eWdmDgbYEquFxyq/w75XBN6HRJ3TYz9QblsNJ7C92VjxVfESV3nuj",
+      "tenant_id": "apple_corp",
+      "role": "Member",
+      "clearance": 3,
+      "department": "Sales",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "da210dd9-a0b4-4c7d-9eb3-ded6efcc0475",
+      "email": "user1.orange_teck@example.test",
+      "password_hash": "$2b$12$Qjg9dN2LC99jrHm5uYZej.tle27PVKZHDl2KxiJPBJX6jIYCljn9b",
+      "tenant_id": "orange_teck",
+      "role": "Admin",
+      "clearance": 5,
+      "department": "Engineering",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "1a5cc1f9-9f58-4bf6-9e1d-e1d51b348b4f",
+      "email": "user2.orange_teck@example.test",
+      "password_hash": "$2b$12$Nobg6YE/cZETgoe3ssWS7PayhqcEVhHa3Ie0URwu.ab5d2wABHPde",
+      "tenant_id": "orange_teck",
+      "role": "Moderator",
+      "clearance": 4,
+      "department": "Finance",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "005b580f-1a52-4816-bca4-29cd8f05b95f",
+      "email": "user3.orange_teck@example.test",
+      "password_hash": "$2b$12$tr2IqqwTwabp/DRV6dlPo8cf68oSAmoLe2TtEC.qyOys7wU7I2RCb",
+      "tenant_id": "orange_teck",
+      "role": "Member",
+      "clearance": 3,
+      "department": "Operations",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "63583506-f74d-446a-98e7-d34f92b935b0",
+      "email": "user4.orange_teck@example.test",
+      "password_hash": "$2b$12$w8oQ33e09f8jUXJ5nf7j0i1k3Vk5PDfCfuBbMCSC/RmLtuNAnqPNL",
+      "tenant_id": "orange_teck",
+      "role": "User",
+      "clearance": 1,
+      "department": "Human Resources",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "afa983fa-8d68-47f7-8da1-b8fc5567b346",
+      "email": "user5.orange_teck@example.test",
+      "password_hash": "$2b$12$8WYA8ud/76B1nRfHMYHRPMYlsvR2LoEQPbefIb5.TyXc3OFVEx4x2",
+      "tenant_id": "orange_teck",
+      "role": "Member",
+      "clearance": 2,
+      "department": "Customer Success",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "3111af1c-2c08-4540-b5f1-9a35528a5a4e",
+      "email": "user6.orange_teck@example.test",
+      "password_hash": "$2b$12$d0G/sEbFW2iITVthLXHHkh1RDcO.m6Yt/ydoIJAIswfhlWfDzxts8",
+      "tenant_id": "orange_teck",
+      "role": "User",
+      "clearance": 3,
+      "department": "Marketing",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "c1220dc0-06cc-4088-ae97-e77c1b10e946",
+      "email": "user7.orange_teck@example.test",
+      "password_hash": "$2b$12$h61rIRnr0uIwxHOUamFcyS5ncdzxt.jbz/faIk.1cLA1OZJRtBGej",
+      "tenant_id": "orange_teck",
+      "role": "Member",
+      "clearance": 1,
+      "department": "Legal & Compliance",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "5200af07-61bb-4cca-828f-64a0964072f9",
+      "email": "user8.orange_teck@example.test",
+      "password_hash": "$2b$12$Z4C4Qz7nXIaFiR5JXSu/GfvHPfbsK0A0phnWt4wo0KK/kIPYeSisx",
+      "tenant_id": "orange_teck",
+      "role": "User",
+      "clearance": 2,
+      "department": "IT Security",
+      "mfa_verified": false,
+      "account_locked": true
+    },
+    {
+      "id": "800589d9-28bb-471d-b614-ef293de1cce7",
+      "email": "user9.orange_teck@example.test",
+      "password_hash": "$2b$12$237erT.6dZt6ox.OKudBt/8XAEURI0IYTII0D1QXaTu5Qi/V7PAvx",
+      "tenant_id": "orange_teck",
+      "role": "Member",
+      "clearance": 3,
+      "department": "Sales",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "a6e70d51-b570-4b2b-b220-c5abeee5ae0d",
+      "email": "user10.orange_teck@example.test",
+      "password_hash": "$2b$12$Sgu82BD12DoyBMo.ZJ13F5tG2yMo6lXV88QK3Mc96swiaaBd154DX",
+      "tenant_id": "orange_teck",
+      "role": "User",
+      "clearance": 1,
+      "department": "Engineering",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "727db617-747f-4bce-bdfa-d1a25902cea5",
+      "email": "user1.banana_republic@example.test",
+      "password_hash": "$2b$12$1GRHyrQBhoeXhrwVnbn0MOxqG0fsztyXvBiVqUk/0fIp9sIgyyB9b",
+      "tenant_id": "banana_republic",
+      "role": "Admin",
+      "clearance": 5,
+      "department": "Engineering",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "5681dbbb-6435-4638-8207-9561fc1d9b89",
+      "email": "user2.banana_republic@example.test",
+      "password_hash": "$2b$12$gIQXpIceSLkjK0Zs0kj.7oG47d2k.IkWrPz0mqBV.SiqLUYqYPyKB",
+      "tenant_id": "banana_republic",
+      "role": "Moderator",
+      "clearance": 4,
+      "department": "Finance",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "8366444b-0585-489a-a3ec-1327db5d798d",
+      "email": "user3.banana_republic@example.test",
+      "password_hash": "$2b$12$7ppJosNLuMXeoF2c4j55N.xDQEXcUvWYuQWk2Jddu9atVY9.89uzF",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 3,
+      "department": "Operations",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "8747be5a-ea70-43c1-a2d9-20772b1fd8e9",
+      "email": "user4.banana_republic@example.test",
+      "password_hash": "$2b$12$lUTOJpl2P57/irrUXaBPZqGnOL1jS6b6UOICNrbj8ymlaGg1N8urR",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 1,
+      "department": "Human Resources",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "93e64465-ab06-49f5-95c4-909a820d8ace",
+      "email": "user5.banana_republic@example.test",
+      "password_hash": "$2b$12$5LEHYZxMkWfBpIJNQbfpfqs9fPzBEED6vkq04jZI0wir8IfiubCG3",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 2,
+      "department": "Customer Success",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "25782401-976e-4eca-ae58-28b8dfa94c17",
+      "email": "user6.banana_republic@example.test",
+      "password_hash": "$2b$12$z9dkihlhL3jmCfBcTb80nuynPLpeR1amwskX51AI3MbzOlSHDUcLk",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 3,
+      "department": "Marketing",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "ccf732a4-9ba0-44cd-87c4-ca6ef17306c9",
+      "email": "user7.banana_republic@example.test",
+      "password_hash": "$2b$12$h8UUCHwKWA1TN2DByj8tbKGqAPBNfp1MoQs9gD2k9RdCjNaBH4kDO",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 1,
+      "department": "Legal & Compliance",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "5f0f0ab6-9c54-4bae-a73e-c44d648cb555",
+      "email": "user8.banana_republic@example.test",
+      "password_hash": "$2b$12$I4FU9IMsF4lMpQviinKUb3OziPlEAIrDPGf5anT4hYJJPuGZUeE.g",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 2,
+      "department": "IT Security",
+      "mfa_verified": false,
+      "account_locked": true
+    },
+    {
+      "id": "cfa382d8-44af-4d73-b843-f6e49f3d25a2",
+      "email": "user9.banana_republic@example.test",
+      "password_hash": "$2b$12$nJQtyVhyQ2HyMaLToOS7C4ye/3gYBIZirK0Xf7FlHB0o5ruypYi3g",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 3,
+      "department": "Sales",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "705212d8-0ae0-4d6d-beab-d49178f7047c",
+      "email": "user10.banana_republic@example.test",
+      "password_hash": "$2b$12$1MzY/xF2AXVMoH7Y5L.wri12BM4Qq2mEXxMCOBD4yTw0KsEd7Dl3z",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 1,
+      "department": "Engineering",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "343cc152-4da9-4894-8f90-9163fcbd38e4",
+      "email": "user11.banana_republic@example.test",
+      "password_hash": "$2b$12$d0uSPQJ45dbOgfEfddeyTQEQgvfNgwGxbpfvYr7Zdb/GGOBjjhWox",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 2,
+      "department": "Finance",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "8d4f3b18-d3d7-4c36-8e76-d50d2da7c3a9",
+      "email": "user12.banana_republic@example.test",
+      "password_hash": "$2b$12$PyFSVTxmRXma1BiKGfjs6MzvoqiMWdX3GLY..yDrjiAbvULTzCgV.",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 3,
+      "department": "Operations",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "5ee50e99-15e6-411d-b070-35881dc160dc",
+      "email": "user13.banana_republic@example.test",
+      "password_hash": "$2b$12$NS1258oRMo27t1J83wyApcH5z.pEnZSF7i8T93lDa1NJ8IdoinSuy",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 1,
+      "department": "Human Resources",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "17b6f791-9820-4c1e-854f-1e455ca80dc6",
+      "email": "user14.banana_republic@example.test",
+      "password_hash": "$2b$12$NurQr3sTmPFgXR03gbSpSWB7k6DQgmzqjFzrxmIcy6GncMElC0hYX",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 2,
+      "department": "Customer Success",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "0e57f21e-3ad1-47f8-abc2-fcc6c4576fdf",
+      "email": "user15.banana_republic@example.test",
+      "password_hash": "$2b$12$HakTwZbBd2iFYl0IM/cXivs3gPOTXfmXyBUo9KuiXu5iDAhnHzIcB",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 3,
+      "department": "Marketing",
+      "mfa_verified": false,
+      "account_locked": true
+    },
+    {
+      "id": "747a896b-62a1-4e71-8f64-d94ccb0c2c76",
+      "email": "user16.banana_republic@example.test",
+      "password_hash": "$2b$12$qde7OQMXTlX.Mfio4ErgTyEzoP6l7u89OqI.1BAnuvlh/TlXceZhH",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 1,
+      "department": "Legal & Compliance",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "8d340177-61e7-4b66-a07c-a4e51327f1c7",
+      "email": "user17.banana_republic@example.test",
+      "password_hash": "$2b$12$d/1n9ixSlYZfcj6anJLjX9wsuKbb4CGv2jbXSDRr6bLYhYokfuw8P",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 2,
+      "department": "IT Security",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "0a39e45d-80ac-4ff6-ab0c-019a2cf4890d",
+      "email": "user18.banana_republic@example.test",
+      "password_hash": "$2b$12$qJw76ffsxYlmRETc/BAt5d.19s.8XSjBHOCyCl..1qLykn7NItK3d",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 3,
+      "department": "Sales",
+      "mfa_verified": false,
+      "account_locked": false
+    },
+    {
+      "id": "823d9e93-348a-4792-b493-1496986a32b9",
+      "email": "user19.banana_republic@example.test",
+      "password_hash": "$2b$12$i0GlYY4l5HZN3VhWwpy3CGE4JgexXzPQ5swIUSuTj0AH3p4dEO1D4",
+      "tenant_id": "banana_republic",
+      "role": "Member",
+      "clearance": 1,
+      "department": "Engineering",
+      "mfa_verified": true,
+      "account_locked": false
+    },
+    {
+      "id": "a3e37fae-ad59-49c9-828d-d8a17010fb49",
+      "email": "user20.banana_republic@example.test",
+      "password_hash": "$2b$12$2JpSVBn0w/qAnVCVF192YJMO4wMjuOPQTFonJMlv04UuqjDb/iR1Y",
+      "tenant_id": "banana_republic",
+      "role": "User",
+      "clearance": 2,
+      "department": "Finance",
+      "mfa_verified": false,
+      "account_locked": false
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "7f13f087-66b4-42cd-8534-277d46e1a8cb",
+      "timestamp": "2026-06-20T17:33:56.511Z",
+      "tenant_id": "apple_corp",
+      "subject_id": "edb2b334-29db-444f-818f-0d497cd78388",
+      "subject_email": "admin@applecorp.test",
+      "action": "READ",
+      "resource": "audit_logs",
+      "outcome": "ALLOW",
+      "reason": "role_permitted",
+      "ip_address": "203.0.113.10"
+    },
+    {
+      "id": "491ac780-d19e-478b-aff6-ceb41fb8fce1",
+      "timestamp": "2026-06-20T17:26:56.511Z",
+      "tenant_id": "apple_corp",
+      "subject_id": "d4da3ff5-74c4-4429-b815-c3ea976c951a",
+      "subject_email": "user1.apple_corp@example.test",
+      "action": "WRITE",
+      "resource": "policies",
+      "outcome": "ALLOW",
+      "reason": "role_permitted",
+      "ip_address": "203.0.113.11"
+    },
+    {
+      "id": "7ff5b536-e175-4a18-a5b5-a5d294dcbfcb",
+      "timestamp": "2026-06-20T17:20:56.511Z",
+      "tenant_id": "apple_corp",
+      "subject_id": "d141ecef-0795-409f-8d4a-1a8a0fb6b827",
+      "subject_email": "user3.apple_corp@example.test",
+      "action": "DELETE",
+      "resource": "users",
+      "outcome": "DENY",
+      "reason": "insufficient_clearance",
+      "ip_address": "203.0.113.12"
+    },
+    {
+      "id": "2139939b-4378-4aa9-afa7-086d5e270a5e",
+      "timestamp": "2026-06-20T17:13:56.511Z",
+      "tenant_id": "orange_teck",
+      "subject_id": "da210dd9-a0b4-4c7d-9eb3-ded6efcc0475",
+      "subject_email": "user1.orange_teck@example.test",
+      "action": "READ",
+      "resource": "documents",
+      "outcome": "ALLOW",
+      "reason": "role_permitted",
+      "ip_address": "203.0.113.20"
+    },
+    {
+      "id": "fce96d89-07b2-4bec-b7c1-18349fe05221",
+      "timestamp": "2026-06-20T17:07:56.511Z",
+      "tenant_id": "orange_teck",
+      "subject_id": "005b580f-1a52-4816-bca4-29cd8f05b95f",
+      "subject_email": "user3.orange_teck@example.test",
+      "action": "WRITE",
+      "resource": "policies",
+      "outcome": "DENY",
+      "reason": "role_not_permitted",
+      "ip_address": "203.0.113.21"
+    },
+    {
+      "id": "cb597301-826e-4cb9-aaed-d4b123c02232",
+      "timestamp": "2026-06-20T16:58:56.511Z",
+      "tenant_id": "apple_corp",
+      "subject_id": "727db617-747f-4bce-bdfa-d1a25902cea5",
+      "subject_email": "user1.banana_republic@example.test",
+      "action": "READ",
+      "resource": "documents",
+      "outcome": "DENY",
+      "reason": "tenant_isolation_violation",
+      "ip_address": "203.0.113.30"
+    },
+    {
+      "id": "b09f984f-a2ff-4822-b879-59a4449f5af9",
+      "timestamp": "2026-06-20T16:51:56.511Z",
+      "tenant_id": "banana_republic",
+      "subject_id": "5681dbbb-6435-4638-8207-9561fc1d9b89",
+      "subject_email": "user2.banana_republic@example.test",
+      "action": "READ",
+      "resource": "documents",
+      "outcome": "ALLOW",
+      "reason": "role_permitted",
+      "ip_address": "203.0.113.31"
+    },
+    {
+      "id": "b36d43a3-6702-44c9-89f8-8ab12a169bcf",
+      "timestamp": "2026-06-20T16:43:56.511Z",
+      "tenant_id": "banana_republic",
+      "subject_id": "8747be5a-ea70-43c1-a2d9-20772b1fd8e9",
+      "subject_email": "user4.banana_republic@example.test",
+      "action": "LOGIN",
+      "resource": "session",
+      "outcome": "DENY",
+      "reason": "account_locked",
+      "ip_address": "203.0.113.32"
+    },
+    {
+      "id": "39c9c617-b352-4f5b-9c72-dcee046a1e26",
+      "timestamp": "2026-06-20T16:35:56.511Z",
+      "tenant_id": "apple_corp",
+      "subject_id": "ccd91c35-da85-4162-adb4-f4bfcaa745da",
+      "subject_email": "user2.apple_corp@example.test",
+      "action": "UPDATE",
+      "resource": "documents",
+      "outcome": "ALLOW",
+      "reason": "role_permitted",
+      "ip_address": "203.0.113.13"
+    },
+    {
+      "id": "33be5cf5-adfa-443f-9d70-0daadfeeed79",
+      "timestamp": "2026-06-20T16:28:56.511Z",
+      "tenant_id": "apple_corp",
+      "subject_id": "159a879e-e129-4a26-b961-bb0ef23bf464",
+      "subject_email": "user5.apple_corp@example.test",
+      "action": "READ",
+      "resource": "audit_logs",
+      "outcome": "DENY",
+      "reason": "insufficient_clearance",
+      "ip_address": "203.0.113.14"
+    },
+    {
+      "id": "44bb39c2-ab66-4642-8343-7cf578686ca6",
+      "timestamp": "2026-06-20T16:20:56.511Z",
+      "tenant_id": "orange_teck",
+      "subject_id": "3111af1c-2c08-4540-b5f1-9a35528a5a4e",
+      "subject_email": "user6.orange_teck@example.test",
+      "action": "READ",
+      "resource": "documents",
+      "outcome": "ALLOW",
+      "reason": "role_permitted",
+      "ip_address": "203.0.113.22"
+    },
+    {
+      "id": "e484d790-f160-4522-bc1d-8aee2e911071",
+      "timestamp": "2026-06-20T16:13:56.511Z",
+      "tenant_id": "banana_republic",
+      "subject_id": "343cc152-4da9-4894-8f90-9163fcbd38e4",
+      "subject_email": "user11.banana_republic@example.test",
+      "action": "DELETE",
+      "resource": "documents",
+      "outcome": "DENY",
+      "reason": "mfa_required",
+      "ip_address": "203.0.113.33"
+    },
+    {
+      "id": "94f11ee7-a5e1-4f3d-a6e5-5c671660adba",
+      "timestamp": "2026-06-20T16:06:56.511Z",
+      "tenant_id": "apple_corp",
+      "subject_id": "edb2b334-29db-444f-818f-0d497cd78388",
+      "subject_email": "admin@applecorp.test",
+      "action": "DELETE",
+      "resource": "users",
+      "outcome": "ALLOW",
+      "reason": "role_permitted",
+      "ip_address": "203.0.113.15"
+    },
+    {
+      "id": "d0372507-368c-4447-b867-de6b03638361",
+      "timestamp": "2026-06-20T15:58:56.511Z",
+      "tenant_id": "orange_teck",
+      "subject_id": null,
+      "subject_email": "unknown@unknown.test",
+      "action": "LOGIN",
+      "resource": "session",
+      "outcome": "DENY",
+      "reason": "invalid_credentials",
+      "ip_address": "203.0.113.23"
+    },
+    {
+      "id": "012d7a5e-4ce5-4401-862b-0ab08e42f11d",
+      "timestamp": "2026-06-20T15:50:56.511Z",
+      "tenant_id": "banana_republic",
+      "subject_id": "727db617-747f-4bce-bdfa-d1a25902cea5",
+      "subject_email": "user1.banana_republic@example.test",
+      "action": "WRITE",
+      "resource": "policies",
+      "outcome": "ALLOW",
+      "reason": "role_permitted",
+      "ip_address": "203.0.113.34"
+    }
+  ]
+}
