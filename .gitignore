@@ -31,10 +31,6 @@ yarn-error.log*
 # vercel
 .vercel
 
-# prisma (local SQLite db -- regenerate via `npm run db:push && npm run db:seed`)
-/prisma/*.db
-/prisma/*.db-journal
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts

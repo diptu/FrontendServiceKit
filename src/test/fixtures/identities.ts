@@ -2,7 +2,7 @@ import type { AuthorizationResource, AuthorizationSubject } from "@/core/policy/
 
 /**
  * Shared ABAC test fixtures: one identity per role tier for each of the
- * three mock tenants (src/mock/data.json / prisma/seed.mjs), so the test
+ * three mock tenants (src/mock/data.json), so the test
  * matrix in PolicyDecisionPoint.test.ts and AuthorizationContext.test.tsx
  * doesn't each invent its own ad hoc subjects.
  */

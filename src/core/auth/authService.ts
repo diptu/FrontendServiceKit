@@ -120,6 +120,15 @@ function rootCookieDomain(hostname: string): string | null {
   return null;
 }
 
+/**
+ * Written directly via `document.cookie` (client-side), not a Server Action
+ * + `httpOnly` cookie -- a deliberate deviation from the usual recommended
+ * pattern. This cookie must stay JS-readable: getStoredAccessToken()'s
+ * cross-subdomain hydration fallback and AuthContext's in-memory state both
+ * decode it directly in the browser. Making it `httpOnly` would silently
+ * break both. Already a non-security-boundary per the trust-boundary note
+ * above, so the tradeoff costs nothing further.
+ */
 function setAccessTokenCookie(accessToken: string, claims: JWTClaims): void {
   const secondsUntilExpiry = claims.exp - Math.floor(Date.now() / 1000);
   const maxAge = Math.max(secondsUntilExpiry, 0);

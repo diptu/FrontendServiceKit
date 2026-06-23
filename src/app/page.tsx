@@ -16,7 +16,7 @@ interface TenantRoleBreakdown {
   roles: { label: string; count: number }[];
 }
 
-// Real role counts from the seeded tenants (src/mock/data.json / prisma/seed.mjs) --
+// Real role counts from the seeded tenants (src/mock/data.json) --
 // not arbitrary placeholder numbers.
 const TENANT_PREVIEWS: readonly TenantRoleBreakdown[] = [
   {

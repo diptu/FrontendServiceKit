@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   Building2,
@@ -44,7 +45,7 @@ const NAV_GROUPS: readonly PlatformNavGroup[] = [
     label: "Platform Management",
     items: [
       { label: "Dashboard", icon: LayoutDashboard, enabled: true, href: "/admin/dashboard" },
-      { label: "Tenants", icon: Building2, enabled: false },
+      { label: "Tenants", icon: Building2, enabled: true, href: "/admin/tenants/create" },
       { label: "Plans & Features", icon: CreditCard, enabled: false },
       { label: "Tenant Provisioning", icon: PlusCircle, enabled: false },
     ],
@@ -74,14 +75,19 @@ interface PlatformAdminShellProps {
   children: ReactNode;
 }
 
-function clearPlatformAdminSession(): void {
-  document.cookie = `${PLATFORM_ADMIN_TOKEN_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
-  window.location.href = "/admin/login";
-}
-
 export default function PlatformAdminShell({ adminEmail, adminId, children }: PlatformAdminShellProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  function handleLogout(): void {
+    document.cookie = `${PLATFORM_ADMIN_TOKEN_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+    // Same-origin (app/admin/login lives on this same root domain), no
+    // state-flush requirement like AuthContext's logout has -- client-side
+    // navigation is fine here, unlike the cross-subdomain redirects below.
+    router.push("/admin/login");
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
@@ -150,12 +156,16 @@ export default function PlatformAdminShell({ adminEmail, adminId, children }: Pl
                   );
                 }
 
+                const isActive = pathname === item.href;
+
                 return (
                   <Link
                     key={item.label}
                     href={item.href ?? "#"}
                     title={isCollapsed ? item.label : undefined}
-                    className="flex items-center gap-3 rounded-lg bg-green-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm"
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      isActive ? "bg-green-600 text-white shadow-sm" : "text-slate-600 hover:bg-slate-100"
+                    }`}
                   >
                     <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
                     {!isCollapsed && item.label}
@@ -240,7 +250,7 @@ export default function PlatformAdminShell({ adminEmail, adminId, children }: Pl
 
             <button
               type="button"
-              onClick={clearPlatformAdminSession}
+              onClick={handleLogout}
               title={`Log out (${adminId})`}
               className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
             >

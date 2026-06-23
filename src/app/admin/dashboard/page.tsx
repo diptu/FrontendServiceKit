@@ -5,10 +5,10 @@ import TenantManagementTable, { type TenantOverviewRow } from "@/components/plat
 import UserOverviewChart from "@/components/platform-admin/UserOverviewChart";
 import UsersByRoleChart, { type RoleBreakdownEntry } from "@/components/platform-admin/UsersByRoleChart";
 import { getPlatformAdminSession } from "@/core/platformAdmin/getPlatformAdminSession";
-import { prisma } from "@/lib/db/prismaClient";
+import mockData from "@/mock/data.json";
 
-function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+function formatDate(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 /**
@@ -22,11 +22,13 @@ function formatDate(date: Date): string {
  * [tenant]/(dashboard) tree only and check a completely different claims
  * shape (JWTClaims, not PlatformAdminClaims).
  *
- * Tenant/user counts and the role breakdown are real Prisma queries
- * (intentionally cross-tenant -- no tenantScopedQuery here, this console's
- * whole purpose is to see across tenants). "Active Roles" and "Policy
- * Decisions" on the KPI grid, and the 30-day trend / recent-activity feed,
- * stay decorative -- see their components for why.
+ * Tenant/user counts and the role breakdown are computed from the static
+ * seed dataset (src/mock/data.json) -- there's no database behind this
+ * frontend anymore (removed: doesn't survive Vercel's serverless
+ * filesystem) and no real backend endpoint for "list all tenants" yet
+ * (only /auth/login exists on the live gateway so far). "Active Roles" and
+ * "Policy Decisions" on the KPI grid, and the 30-day trend /
+ * recent-activity feed, stay decorative -- see their components for why.
  */
 // TODO(auth): temporary -- the SUPER_ADMIN/SYSTEM_ADMIN gate below is
 // disabled so anyone can view this dashboard for now. Restore it by
@@ -48,28 +50,26 @@ export default async function PlatformAdminDashboardPage() {
     );
   }
 
-  const [tenants, totalUsers, roleGroups] = await Promise.all([
-    prisma.tenant.findMany({
-      orderBy: { createdAt: "asc" },
-      include: { _count: { select: { users: true } } },
-    }),
-    prisma.user.count(),
-    prisma.user.groupBy({ by: ["role"], _count: { role: true } }),
-  ]);
+  const tenants = Object.values(mockData.tenants).sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  const totalUsers = mockData.users.length;
 
   const tenantRows: TenantOverviewRow[] = tenants.map((tenant) => ({
-    id: tenant.id,
+    id: tenant.tenant_id,
     name: tenant.name,
     plan: tenant.plan,
     status: tenant.status,
-    userCount: tenant._count.users,
-    createdAt: formatDate(tenant.createdAt),
+    userCount: mockData.users.filter((user) => user.tenant_id === tenant.tenant_id).length,
+    createdAt: formatDate(tenant.created_at),
   }));
 
-  const roleBreakdown: RoleBreakdownEntry[] = roleGroups.map((group) => ({
-    role: group.role,
-    count: group._count.role,
-  }));
+  const roleCounts = mockData.users.reduce<Record<string, number>>((counts, user) => {
+    counts[user.role] = (counts[user.role] ?? 0) + 1;
+    return counts;
+  }, {});
+
+  const roleBreakdown: RoleBreakdownEntry[] = Object.entries(roleCounts).map(([role, count]) => ({ role, count }));
 
   return (
     <PlatformAdminShell adminEmail="admin@nutratenant.com" adminId={session.id}>

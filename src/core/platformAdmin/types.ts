@@ -84,6 +84,11 @@ const DEFAULT_SESSION_TTL_SECONDS = 24 * 60 * 60;
  * setAccessTokenCookie for the tenant-side equivalent). Host-only (no
  * Domain widening) is fine here -- app/sign-in and app/admin/dashboard are
  * both on the bare root domain already, no cross-subdomain hop needed.
+ *
+ * Plain `document.cookie`, not a Server Action + `httpOnly` cookie --
+ * deliberate, same reasoning as the tenant-side cookie: getPlatformAdminSessionFromCookie()
+ * below decodes this client-side for app/sign-in's "already logged in"
+ * check, which `httpOnly` would block.
  */
 export function setPlatformAdminSessionCookie(accessToken: string, claims: PlatformAdminClaims): void {
   const expiresAt = claims.exp ?? Math.floor(Date.now() / 1000) + DEFAULT_SESSION_TTL_SECONDS;

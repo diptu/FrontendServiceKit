@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, type FormEvent } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import {
   Building2,
@@ -140,6 +140,7 @@ function extractApiErrorMessage(error: unknown): string {
 }
 
 function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
+  const router = useRouter();
   const { login } = useAuth();
   const [form, setForm] = useState<SignInFormState>({ tenantId: "", email: "", password: "", rememberMe: false });
   const [showPassword, setShowPassword] = useState(false);
@@ -159,7 +160,8 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
     // core/auth/authService.ts) -- check both.
     const platformClaims = getPlatformAdminSessionFromCookie();
     if (platformClaims) {
-      window.location.href = "/admin/dashboard";
+      // Same-origin (/admin/dashboard is on this same root domain) -- client-side nav.
+      router.push("/admin/dashboard");
       return;
     }
 
@@ -167,6 +169,8 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
     if (existingAccessToken) {
       const claims = decodeJwtClaims(existingAccessToken);
       if (claims && !isClaimsExpired(claims)) {
+        // Cross-origin (another subdomain) -- router.push can't navigate
+        // across hostnames, a full browser navigation is the only option.
         window.location.href = buildTenantOrigin(
           claims.tenant_org,
           window.location.hostname,
@@ -175,7 +179,7 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         );
       }
     }
-  }, []);
+  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -207,12 +211,15 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         if (platformClaims) {
           setPlatformAdminSessionCookie(response.data.access_token, platformClaims);
         }
-        window.location.href = "/admin/dashboard";
+        // Same-origin -- client-side nav.
+        router.push("/admin/dashboard");
         return;
       }
 
       const claims = await login(response.data.access_token, response.data.refresh_token);
       localStorage.setItem(TENANT_ID_STORAGE_KEY, claims.tenant_org);
+      // Cross-origin (the tenant's own subdomain) -- router.push can't
+      // navigate across hostnames, a full browser navigation is required.
       window.location.href = buildTenantOrigin(
         claims.tenant_org,
         window.location.hostname,

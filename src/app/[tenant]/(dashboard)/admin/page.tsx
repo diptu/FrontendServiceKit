@@ -1,15 +1,14 @@
-import type { Prisma, User as PrismaUser } from "@prisma/client";
 import AdminOperationsHub, { type DirectoryUser, type TenantMetadata } from "@/components/admin/AdminOperationsHub";
 import { getServerSession } from "@/core/auth/getServerSession";
-import { mapClaimRoleToPolicyRole } from "@/core/policy/requestMapping";
 import { resolvePrismaTenantId } from "@/core/tenant/tenantIdMap";
-import { prisma } from "@/lib/db/prismaClient";
-import { tenantScopedQuery, type ValidatedSession } from "@/lib/db/tenantScopedQuery";
+import mockData from "@/mock/data.json";
 
-interface TenantSettings {
-  max_users?: number;
-}
-
+/**
+ * Data comes from the static seed dataset (src/mock/data.json) -- there's
+ * no database behind this frontend (removed: doesn't survive Vercel's
+ * serverless filesystem) and no real backend endpoint for tenant user
+ * directories yet (only /auth/login exists on the live gateway so far).
+ */
 export default async function AdminWorkspacePage() {
   const claims = await getServerSession();
 
@@ -19,34 +18,22 @@ export default async function AdminWorkspacePage() {
     return <p className="text-sm text-slate-500">Your session could not be verified.</p>;
   }
 
-  const session: ValidatedSession = {
-    userId: claims.sub,
-    tenantId: resolvePrismaTenantId(claims.tenant_org),
-    role: mapClaimRoleToPolicyRole(claims.role),
-  };
-
-  const [tenant, users] = await Promise.all([
-    prisma.tenant.findUnique({ where: { id: session.tenantId } }),
-    tenantScopedQuery<Prisma.UserFindManyArgs, PrismaUser[]>(session, {
-      resource: "users",
-      run: (args) => prisma.user.findMany(args),
-      args: { orderBy: { email: "asc" } },
-    }),
-  ]);
+  const tenantRecordId = resolvePrismaTenantId(claims.tenant_org);
+  const tenant = mockData.tenants[tenantRecordId as keyof typeof mockData.tenants];
 
   if (!tenant) {
     return <p className="text-sm text-slate-500">Tenant metadata could not be loaded.</p>;
   }
 
-  const settings = tenant.settings as TenantSettings;
+  const users = mockData.users.filter((user) => user.tenant_id === tenantRecordId);
 
   const tenantMetadata: TenantMetadata = {
-    tenantId: tenant.id,
+    tenantId: tenant.tenant_id,
     name: tenant.name,
     plan: tenant.plan,
     status: tenant.status,
     memberSeatsUsed: users.length,
-    memberSeatsLimit: settings.max_users ?? users.length,
+    memberSeatsLimit: tenant.settings.max_users ?? users.length,
   };
 
   const directoryUsers: DirectoryUser[] = users.map((user) => ({
@@ -55,8 +42,8 @@ export default async function AdminWorkspacePage() {
     role: user.role as DirectoryUser["role"],
     department: user.department,
     clearance: user.clearance,
-    mfaVerified: user.mfaVerified,
-    accountLocked: user.accountLocked,
+    mfaVerified: user.mfa_verified,
+    accountLocked: user.account_locked,
   }));
 
   return <AdminOperationsHub tenant={tenantMetadata} users={directoryUsers} />;
