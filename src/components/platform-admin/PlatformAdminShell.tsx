@@ -2,21 +2,26 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   Bell,
   Building2,
   Calendar,
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  Database,
   Download,
   Fingerprint,
   Gavel,
   KeyRound,
   LayoutDashboard,
+  Layers,
   LogOut,
   Menu,
+  Plug,
   PlusCircle,
   ScrollText,
   Search,
@@ -42,29 +47,38 @@ interface PlatformNavGroup {
 
 const NAV_GROUPS: readonly PlatformNavGroup[] = [
   {
-    label: "Platform Management",
+    label: "Platform",
     items: [
       { label: "Dashboard", icon: LayoutDashboard, enabled: true, href: "/admin/dashboard" },
-      { label: "Tenants", icon: Building2, enabled: true, href: "/admin/tenants/create" },
-      { label: "Plans & Features", icon: CreditCard, enabled: false },
-      { label: "Tenant Provisioning", icon: PlusCircle, enabled: false },
     ],
   },
   {
-    label: "Access Control",
+    label: "Tenant Management",
     items: [
-      { label: "Users", icon: Users, enabled: false },
-      { label: "Roles", icon: ShieldCheck, enabled: false },
-      { label: "Permissions", icon: KeyRound, enabled: false },
-      { label: "Policies (ABAC)", icon: Gavel, enabled: false },
-      { label: "MFA Policies", icon: Fingerprint, enabled: false },
+      { label: "Tenants",             icon: Building2,  enabled: true, href: "/admin/tenants"             },
+      { label: "Subscriptions",       icon: CreditCard, enabled: true, href: "/admin/subscriptions"       },
+      { label: "Plans & Features",    icon: Layers,     enabled: true, href: "/admin/plans-features"      },
+      { label: "Tenant Provisioning", icon: PlusCircle, enabled: true, href: "/admin/tenant-provisioning" },
     ],
   },
   {
-    label: "Monitoring",
+    label: "IAM & SCIM",
     items: [
-      { label: "Audit Logs", icon: ScrollText, enabled: false },
-      { label: "System Settings", icon: Settings, enabled: false },
+      { label: "Users",           icon: Users,         enabled: true,  href: "/admin/roster"        },
+      { label: "Roles",           icon: ShieldCheck,   enabled: true,  href: "/admin/roles"         },
+      { label: "Groups",          icon: Database,      enabled: true,  href: "/admin/groups"        },
+      { label: "Permissions",     icon: KeyRound,      enabled: true,  href: "/admin/permissions"   },
+      { label: "Policies (ABAC)", icon: Gavel,         enabled: true,  href: "/admin/policies"      },
+      { label: "MFA Policies",    icon: Fingerprint,   enabled: true,  href: "/admin/mfa-policies"  },
+      { label: "Audit Log",       icon: ScrollText,    enabled: true,  href: "/admin/audit-logs"    },
+      { label: "Security Events", icon: AlertTriangle, enabled: true,  href: "/admin/security-events" },
+      { label: "Integrations",    icon: Plug,          enabled: true,  href: "/admin/integrations"   },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { label: "Settings", icon: Settings, enabled: true, href: "/admin/system-settings" },
     ],
   },
 ];
@@ -106,13 +120,17 @@ export default function PlatformAdminShell({ adminEmail, adminId, children }: Pl
       >
         <div className="flex h-16 items-center justify-between gap-2 border-b border-slate-200 px-4">
           <div className="flex items-center gap-2 overflow-hidden">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 border-green-600 text-green-600">
-              <ShieldCheck className="h-4 w-4" strokeWidth={2.25} />
-            </div>
+            <Image
+              src="/logo.jpeg"
+              alt="NutraTenant logo"
+              width={32}
+              height={32}
+              className="shrink-0 rounded-full object-cover"
+            />
             {!isCollapsed && (
               <div className="truncate">
                 <p className="truncate text-sm font-semibold tracking-tight text-slate-900">NutraTenant</p>
-                <p className="truncate text-[10px] text-slate-500">Multi-Tenant IAM Platform</p>
+                <p className="truncate text-[10px] text-slate-500">Multi-Tenancy Microservice</p>
               </div>
             )}
           </div>
@@ -156,7 +174,9 @@ export default function PlatformAdminShell({ adminEmail, adminId, children }: Pl
                   );
                 }
 
-                const isActive = pathname === item.href;
+                const isActive =
+                  !!item.href &&
+                  (pathname === item.href || pathname.startsWith(item.href + "/"));
 
                 return (
                   <Link

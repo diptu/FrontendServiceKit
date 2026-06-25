@@ -24,7 +24,6 @@
     "session": 1,
     "documents": 1,
     "users": 3,
-    "policies": 4,
-    "audit_logs": 5
+    "policies": 4
   }
 }

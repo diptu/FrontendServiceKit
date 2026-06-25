@@ -9,6 +9,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth/AuthContext";
 import { getStoredAccessToken } from "@/core/auth/authService";
@@ -145,11 +146,13 @@ export default function TotpVerificationForm() {
   return (
     <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 shadow-md">
       <div className="mb-6 flex items-center gap-2">
-        <div
-          className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white ${branding.accentClassName}`}
-        >
-          {branding.logoInitials}
-        </div>
+        <Image
+          src="/logo.jpeg"
+          alt={`${branding.displayName} logo`}
+          width={36}
+          height={36}
+          className="rounded-full object-cover"
+        />
         <span className="text-lg font-semibold tracking-tight text-slate-800">{branding.displayName}</span>
       </div>
 

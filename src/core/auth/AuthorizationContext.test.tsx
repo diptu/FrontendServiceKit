@@ -111,7 +111,8 @@ describe("useAuthorization: client-side PDP mirror", () => {
   it("Attribute Bounds: matching tenant and permitted role, but insufficient clearance, still denies", async () => {
     renderWithProviders(buildClaims({ role: "ADMIN", clearance: 2 }), {
       action: "READ",
-      resourceType: "audit_logs", // default clearance_required: 5
+      resourceType: "audit_logs",
+      resourceAttributes: { clearance_required: 5 },
     });
     expect(await screen.findByTestId("can-result")).toHaveTextContent("false");
   });

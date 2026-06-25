@@ -122,7 +122,7 @@ describe("PolicyDecisionPoint: Attribute-Based Conditions (clearance + departmen
   it("denies with insufficient_clearance when role permits the action but clearance is one below the requirement", () => {
     const decision = pdp.evaluate({
       subject: buildSubject({ role: "Admin", clearance: 4, tenant_id: TENANT_IDS.appleCorp }),
-      resource: buildResource({ type: "audit_logs", tenant_id: TENANT_IDS.appleCorp }), // default clearance_required: 5
+      resource: buildResource({ type: "audit_logs", clearance_required: 5, tenant_id: TENANT_IDS.appleCorp }),
       action: "READ",
     });
 
@@ -132,7 +132,7 @@ describe("PolicyDecisionPoint: Attribute-Based Conditions (clearance + departmen
   it("allows when clearance is exactly equal to the requirement (inclusive boundary)", () => {
     const decision = pdp.evaluate({
       subject: buildSubject({ role: "Admin", clearance: 5, tenant_id: TENANT_IDS.appleCorp }),
-      resource: buildResource({ type: "audit_logs", tenant_id: TENANT_IDS.appleCorp }),
+      resource: buildResource({ type: "audit_logs", clearance_required: 5, tenant_id: TENANT_IDS.appleCorp }),
       action: "READ",
     });
 

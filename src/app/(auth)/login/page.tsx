@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import apiClient from "@/lib/api/client";
@@ -149,11 +150,13 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-8 shadow-md">
       <div className="mb-6 flex items-center gap-2">
-        <div
-          className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white ${branding.accentClassName}`}
-        >
-          {branding.logoInitials}
-        </div>
+        <Image
+          src="/logo.jpeg"
+          alt={`${branding.displayName} logo`}
+          width={36}
+          height={36}
+          className="rounded-full object-cover"
+        />
         <span className="text-lg font-semibold tracking-tight text-zinc-800">{branding.displayName}</span>
       </div>
 
