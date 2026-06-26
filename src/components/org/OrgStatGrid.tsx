@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AppWindow, MonitorSmartphone, ShieldCheck, TrendingUp, Users, UsersRound, type LucideIcon } from "lucide-react";
 import { usePreviewUser, type PreviewRole } from "./PreviewUserContext";
+import { StaggerContainer, StaggerItem } from "@/components/ui";
 
 interface OrgStat {
   id: string;
@@ -70,28 +71,30 @@ export default function OrgStatGrid() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <StaggerContainer stagger={0.09} delayChildren={0.05} className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (
-          <div key={stat.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-slate-500">{stat.label}</p>
-              <Icon className={`h-4 w-4 ${stat.iconColor}`} strokeWidth={1.75} />
+          <StaggerItem key={stat.id}>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-slate-500">{stat.label}</p>
+                <Icon className={`h-4 w-4 ${stat.iconColor}`} strokeWidth={1.75} />
+              </div>
+              <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">{stat.value}</p>
+              <div className="mt-1 flex items-center gap-1.5">
+                {stat.delta && (
+                  <span className={`flex items-center gap-0.5 text-xs font-semibold ${stat.deltaPositive ? "text-emerald-600" : "text-red-500"}`}>
+                    <TrendingUp className="h-3 w-3" strokeWidth={2} />
+                    {stat.delta}
+                  </span>
+                )}
+                {stat.subtext && <span className="text-xs text-slate-400">{stat.subtext}</span>}
+              </div>
             </div>
-            <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">{stat.value}</p>
-            <div className="mt-1 flex items-center gap-1.5">
-              {stat.delta && (
-                <span className={`flex items-center gap-0.5 text-xs font-semibold ${stat.deltaPositive ? "text-emerald-600" : "text-red-500"}`}>
-                  <TrendingUp className="h-3 w-3" strokeWidth={2} />
-                  {stat.delta}
-                </span>
-              )}
-              {stat.subtext && <span className="text-xs text-slate-400">{stat.subtext}</span>}
-            </div>
-          </div>
+          </StaggerItem>
         );
       })}
-    </div>
+    </StaggerContainer>
   );
 }

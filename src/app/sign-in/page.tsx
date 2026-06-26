@@ -14,6 +14,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+import { Alert, Banner } from "@/components/ui";
 import apiClient from "@/lib/api/client";
 import { useAuth } from "@/core/auth/AuthContext";
 import { decodeJwtClaims, getStoredAccessToken, isClaimsExpired } from "@/core/auth/authService";
@@ -321,11 +322,7 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
           </a>
         </div>
 
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm font-medium text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <Alert variant="error" compact>{error}</Alert>}
 
         <button
           type="submit"
@@ -386,10 +383,10 @@ function SignUpForm({ onSwitchTab }: { onSwitchTab: () => void }) {
       <h2 className="text-xl font-semibold text-slate-900">Create your account</h2>
       <p className="mt-1 text-sm text-slate-500">Get started with NutraTenant</p>
 
-      <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-800">
+      <Banner variant="info" showIcon className="mt-4">
         New workspaces are currently provisioned by a platform administrator, not via self-serve sign-up. If your
         organization already has a workspace, ask an admin to send you an onboarding invitation instead.
-      </div>
+      </Banner>
 
       <form
         onSubmit={(event) => event.preventDefault()}

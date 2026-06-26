@@ -10,6 +10,7 @@ import {
   CheckCircle, Flame, Dumbbell, Wheat, MapPin, ChevronRight,
 } from "lucide-react";
 import { usePreviewUser } from "@/components/org/PreviewUserContext";
+import { Button, Badge, StatusBadge } from "@/components/ui";
 
 /* ── Chart data ────────────────────────────────────────────────────────── */
 const ORDER_TREND = [
@@ -107,17 +108,13 @@ const MY_RECENT_ORDERS = [
 ];
 
 /* ── Shared components ─────────────────────────────────────────────────── */
-const ORDER_STATUS_STYLES: Record<string, string> = {
-  completed:  "bg-emerald-50 text-emerald-700",
-  processing: "bg-indigo-50 text-indigo-700",
-  pending:    "bg-amber-50 text-amber-700",
-  cancelled:  "bg-red-50 text-red-700",
-  delivered:  "bg-emerald-50 text-emerald-700",
-  "out-for-delivery": "bg-sky-50 text-sky-700",
-  preparing:  "bg-amber-50 text-amber-700",
+const ORDER_STATUS_EXTRA: Record<string, string> = {
+  "out-for-delivery": "bg-sky-50 text-sky-700 border-sky-200",
+  preparing:          "bg-amber-50 text-amber-700 border-amber-200",
+  processing:         "bg-indigo-50 text-indigo-700 border-indigo-200",
 };
 
-function StatCard({
+function MealStatCard({
   icon: Icon, label, value, sub, iconBg, trend, up,
 }: {
   icon: typeof ShoppingBag; label: string; value: string; sub?: string;
@@ -162,11 +159,11 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
-        <StatCard icon={ShoppingBag}      label="Total Orders"     value="2,568"   iconBg="bg-indigo-500"  trend="+14% vs last week"  up />
-        <StatCard icon={DollarSign}       label="Total Revenue"    value="$48,750" iconBg="bg-emerald-500" trend="+9% vs last month"   up />
-        <StatCard icon={UtensilsCrossed}  label="Meals Served"     value="5,842"   iconBg="bg-violet-500"  trend="+11% this month"     up />
-        <StatCard icon={Users}            label="Active Customers" value="1,248"   iconBg="bg-sky-500"     trend="+6% this month"      up />
-        <StatCard icon={Clock}            label="Pending Orders"   value="156"     iconBg="bg-amber-500"   trend="-3% vs yesterday"    up />
+        <MealStatCard icon={ShoppingBag}      label="Total Orders"     value="2,568"   iconBg="bg-indigo-500"  trend="+14% vs last week"  up />
+        <MealStatCard icon={DollarSign}       label="Total Revenue"    value="$48,750" iconBg="bg-emerald-500" trend="+9% vs last month"   up />
+        <MealStatCard icon={UtensilsCrossed}  label="Meals Served"     value="5,842"   iconBg="bg-violet-500"  trend="+11% this month"     up />
+        <MealStatCard icon={Users}            label="Active Customers" value="1,248"   iconBg="bg-sky-500"     trend="+6% this month"      up />
+        <MealStatCard icon={Clock}            label="Pending Orders"   value="156"     iconBg="bg-amber-500"   trend="-3% vs yesterday"    up />
       </div>
 
       {/* Row 2: Order trend + Donut */}
@@ -312,7 +309,9 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
                   <td className="px-5 py-3 text-slate-700">{o.customer}</td>
                   <td className="px-5 py-3 text-slate-400">{o.date}</td>
                   <td className="px-5 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${ORDER_STATUS_STYLES[o.status]}`}>{o.status}</span>
+                    {ORDER_STATUS_EXTRA[o.status]
+                      ? <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${ORDER_STATUS_EXTRA[o.status]}`}>{o.status.replace(/-/g, " ")}</span>
+                      : <StatusBadge status={o.status} dot />}
                   </td>
                   <td className="px-5 py-3 text-right font-semibold text-slate-900">{o.total}</td>
                 </tr>
@@ -334,21 +333,18 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
                   <p className="text-xs font-medium text-slate-900">{a.item}</p>
                   <p className="text-[11px] text-slate-400">{a.level} {a.unit} remaining</p>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  a.severity === "critical" ? "bg-red-50 text-red-700"
-                  : a.severity === "warning" ? "bg-amber-50 text-amber-700"
-                  : "bg-emerald-50 text-emerald-700"
-                }`}>
+                <Badge
+                  variant={a.severity === "critical" ? "error" : a.severity === "warning" ? "warning" : "success"}
+                  size="xs"
+                >
                   {a.severity === "critical" ? "Critical" : a.severity === "warning" ? "Low" : "OK"}
-                </span>
+                </Badge>
               </div>
             ))}
           </div>
           {isOwner && (
             <div className="border-t border-slate-100 px-5 py-3">
-              <button type="button" className="w-full rounded-lg bg-indigo-600 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors">
-                Reorder Supplies
-              </button>
+              <Button fullWidth size="sm">Reorder Supplies</Button>
             </div>
           )}
         </div>
@@ -368,9 +364,7 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
                   <div key={k.name} className="px-5 py-3">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-medium text-slate-900">{k.name}</p>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${k.status === "busy" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
-                        {k.status}
-                      </span>
+                      <Badge variant={k.status === "busy" ? "warning" : "success"} size="xs">{k.status}</Badge>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <div className="flex-1 rounded-full bg-slate-100 h-1.5">
@@ -420,11 +414,6 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
 const DELIVERY_STEPS = ["Order Confirmed", "Preparing", "Out for Delivery", "Delivered"];
 
 function MemberDashboard({ name }: { name: string }) {
-  const MEAL_STATUS_STYLES: Record<string, string> = {
-    delivered:         "bg-emerald-50 text-emerald-700",
-    "out-for-delivery":"bg-sky-50 text-sky-700",
-    preparing:         "bg-amber-50 text-amber-700",
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -438,10 +427,10 @@ function MemberDashboard({ name }: { name: string }) {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard icon={UtensilsCrossed} label="Meals Today"      value="3"     iconBg="bg-indigo-500"  sub="Tracked today"     />
-        <StatCard icon={Flame}           label="Calories Consumed" value="1,850" iconBg="bg-orange-500" sub="of 2,400 kcal goal" />
-        <StatCard icon={ShoppingBag}     label="Orders Placed"    value="12"    iconBg="bg-violet-500"  sub="This month"        />
-        <StatCard icon={Bike}            label="Active Delivery"  value="1"     iconBg="bg-sky-500"     sub="Est. 12:30 PM"     />
+        <MealStatCard icon={UtensilsCrossed} label="Meals Today"      value="3"     iconBg="bg-indigo-500"  sub="Tracked today"     />
+        <MealStatCard icon={Flame}           label="Calories Consumed" value="1,850" iconBg="bg-orange-500" sub="of 2,400 kcal goal" />
+        <MealStatCard icon={ShoppingBag}     label="Orders Placed"    value="12"    iconBg="bg-violet-500"  sub="This month"        />
+        <MealStatCard icon={Bike}            label="Active Delivery"  value="1"     iconBg="bg-sky-500"     sub="Est. 12:30 PM"     />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
@@ -466,9 +455,9 @@ function MemberDashboard({ name }: { name: string }) {
                   <p className="mt-0.5 truncate text-sm font-medium text-slate-900">{m.name}</p>
                   <p className="text-[11px] text-slate-400">{m.cal} kcal</p>
                 </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold capitalize ${MEAL_STATUS_STYLES[m.status]}`}>
-                  {m.status.replace(/-/g, " ")}
-                </span>
+                {ORDER_STATUS_EXTRA[m.status]
+                  ? <span className={`shrink-0 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold capitalize ${ORDER_STATUS_EXTRA[m.status]}`}>{m.status.replace(/-/g, " ")}</span>
+                  : <StatusBadge status={m.status} dot />}
               </div>
             ))}
           </div>
@@ -560,9 +549,7 @@ function MemberDashboard({ name }: { name: string }) {
                 <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                 <span className="text-[11px] font-medium text-slate-700">{m.rating}</span>
               </div>
-              <button type="button" className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors">
-                Order Now <ChevronRight className="h-3 w-3" />
-              </button>
+              <Button fullWidth size="xs" icon={ChevronRight} iconPosition="right" className="mt-3">Order Now</Button>
             </div>
           ))}
         </div>
@@ -592,7 +579,7 @@ function MemberDashboard({ name }: { name: string }) {
                 </td>
                 <td className="px-5 py-3 text-slate-400">{o.date}</td>
                 <td className="px-5 py-3">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${ORDER_STATUS_STYLES[o.status]}`}>{o.status}</span>
+                  <StatusBadge status={o.status} dot />
                 </td>
                 <td className="px-5 py-3 text-right font-semibold text-slate-900">{o.total}</td>
               </tr>

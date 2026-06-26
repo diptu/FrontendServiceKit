@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { Building2, CheckCircle2, Clock, KeyRound, Mail, Shield, User, UserRound } from "lucide-react";
 import { MemberCard } from "@/components/member/ui";
-
-// ─── Notification prefs sub-component (avoids hook-in-map) ───────────────────
+import { Banner, Button, Badge, StatusBadge } from "@/components/ui";
 
 const NOTIF_DEFAULTS = [
   { label:"Security alerts",          desc:"Login from new device, blocked attempts",   on:true  },
@@ -15,11 +14,8 @@ const NOTIF_DEFAULTS = [
 ];
 
 function NotificationPreferences() {
-  const [prefs, setPrefs] = useState(() => NOTIF_DEFAULTS.map((n) => ({ ...n })));
-
-  function toggle(i: number) {
-    setPrefs((prev) => prev.map((p, idx) => idx === i ? { ...p, on: !p.on } : p));
-  }
+  const [prefs, setPrefs] = useState(() => NOTIF_DEFAULTS.map(n => ({ ...n })));
+  function toggle(i: number) { setPrefs(prev => prev.map((p, idx) => idx === i ? { ...p, on: !p.on } : p)); }
 
   return (
     <MemberCard title="Notification Preferences" className="mt-4">
@@ -41,8 +37,6 @@ function NotificationPreferences() {
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 export default function MemberProfilePage() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -55,16 +49,13 @@ export default function MemberProfilePage() {
   });
   const [draft, setDraft] = useState({ ...form });
 
-  function save() {
-    setForm({ ...draft });
-    setEditing(false);
-  }
+  function save() { setForm({ ...draft }); setEditing(false); }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-800">
+      <Banner variant="info" showIcon>
         Preview mode — My Profile. Auth gate disabled for local dev.
-      </div>
+      </Banner>
 
       <div>
         <h1 className="text-xl font-bold tracking-tight text-slate-900">My Profile</h1>
@@ -72,12 +63,11 @@ export default function MemberProfilePage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Left: avatar + summary */}
         <div className="flex flex-col gap-4">
           <MemberCard title="Account Identity">
             <div className="flex flex-col items-center gap-4">
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-600 text-2xl font-bold text-white">
-                {form.displayName.split(" ").map((n) => n[0]).join("")}
+                {form.displayName.split(" ").map(n => n[0]).join("")}
               </div>
               <div className="text-center">
                 <p className="text-base font-bold text-slate-900">{form.displayName}</p>
@@ -85,20 +75,20 @@ export default function MemberProfilePage() {
                 <p className="text-xs text-slate-400">{form.email}</p>
               </div>
               <div className="flex gap-2">
-                <span className="rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">MEMBER</span>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">Active</span>
+                <Badge variant="violet" size="xs">MEMBER</Badge>
+                <StatusBadge status="active" dot />
               </div>
             </div>
           </MemberCard>
 
           <MemberCard title="Account Details">
             {[
-              { icon:Building2,    label:"Tenant",         value:"Apple Corp"           },
-              { icon:Shield,       label:"Role",            value:"MEMBER"               },
-              { icon:KeyRound,     label:"Clearance",       value:"Level 2 — Restricted" },
-              { icon:CheckCircle2, label:"Email Verified",  value:"Yes"                  },
-              { icon:Clock,        label:"Member Since",    value:"Jan 12, 2026"         },
-              { icon:Clock,        label:"Last Login",      value:"Today 14:30"          },
+              { icon:Building2,    label:"Tenant",        value:"Apple Corp"           },
+              { icon:Shield,       label:"Role",           value:"MEMBER"               },
+              { icon:KeyRound,     label:"Clearance",      value:"Level 2 — Restricted" },
+              { icon:CheckCircle2, label:"Email Verified", value:"Yes"                  },
+              { icon:Clock,        label:"Member Since",   value:"Jan 12, 2026"         },
+              { icon:Clock,        label:"Last Login",     value:"Today 14:30"          },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="mb-3 flex items-center gap-3 last:mb-0">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100">
@@ -113,7 +103,6 @@ export default function MemberProfilePage() {
           </MemberCard>
         </div>
 
-        {/* Right: edit form + notifications */}
         <div className="lg:col-span-2">
           <MemberCard
             title="Personal Information"
@@ -121,20 +110,11 @@ export default function MemberProfilePage() {
               <div className="flex justify-end gap-2">
                 {editing ? (
                   <>
-                    <button type="button" onClick={() => { setDraft({ ...form }); setEditing(false); }}
-                      className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                      Cancel
-                    </button>
-                    <button type="button" onClick={save}
-                      className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">
-                      Save Changes
-                    </button>
+                    <Button variant="secondary" onClick={() => { setDraft({ ...form }); setEditing(false); }}>Cancel</Button>
+                    <Button onClick={save}>Save Changes</Button>
                   </>
                 ) : (
-                  <button type="button" onClick={() => setEditing(true)}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">
-                    Edit Profile
-                  </button>
+                  <Button onClick={() => setEditing(true)}>Edit Profile</Button>
                 )}
               </div>
             }
@@ -158,7 +138,7 @@ export default function MemberProfilePage() {
                     type={type}
                     value={editing ? draft[key] : form[key]}
                     disabled={!editing || disabled}
-                    onChange={(e) => setDraft((p) => ({ ...p, [key]: e.target.value }))}
+                    onChange={e => setDraft(p => ({ ...p, [key]: e.target.value }))}
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-500"
                   />
                 </div>

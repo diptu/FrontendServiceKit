@@ -1,4 +1,5 @@
-import PreviewBanner from "@/components/platform-admin/ui/PreviewBanner";
+import { Banner } from "@/components/ui";
+import { SlideUp, FadeIn, SlideIn } from "@/components/ui";
 import OrgWelcomeBanner from "@/components/org/OrgWelcomeBanner";
 import OrgStatGrid from "@/components/org/OrgStatGrid";
 import OrgActivityChart from "@/components/org/OrgActivityChart";
@@ -20,35 +21,34 @@ export default async function OrgOverviewPage({ params }: OrgOverviewPageProps) 
 
   return (
     <div className="flex flex-col gap-6">
-      <PreviewBanner showIcon>
-        Preview mode — use the user switcher in the top-right to test Owner, Admin, and Member views.
-        Auth gating will be enforced before GA.
-      </PreviewBanner>
 
-      <OrgWelcomeBanner orgDisplayName={displayName} />
+      <FadeIn>
+        <Banner variant="info" showIcon>
+          Preview mode — use the user switcher in the top-right to test Owner, Admin, and Member views.
+          Auth gating will be enforced before GA.
+        </Banner>
+      </FadeIn>
 
-      <OrgStatGrid />
+      <SlideUp delay={0.05}>
+        <OrgWelcomeBanner orgDisplayName={displayName} />
+      </SlideUp>
+
+      {/* Stat grid already has internal stagger via OrgStatGrid */}
+      <SlideUp delay={0.08}>
+        <OrgStatGrid />
+      </SlideUp>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <OrgActivityChart />
-        </div>
-        <div className="lg:col-span-1">
-          <OrgUsersByRole />
-        </div>
-        <div className="lg:col-span-1">
-          <OrgSystemHealth />
-        </div>
+        <SlideIn from="left"  delay={0.1} className="lg:col-span-3"><OrgActivityChart /></SlideIn>
+        <SlideIn from="right" delay={0.15} className="lg:col-span-1"><OrgUsersByRole /></SlideIn>
+        <SlideIn from="right" delay={0.2}  className="lg:col-span-1"><OrgSystemHealth /></SlideIn>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <OrgTopApps orgSlug={orgSlug} />
-        </div>
-        <div className="lg:col-span-1">
-          <OrgRecentActivity orgSlug={orgSlug} />
-        </div>
+        <SlideUp delay={0.05} className="lg:col-span-2"><OrgTopApps orgSlug={orgSlug} /></SlideUp>
+        <SlideUp delay={0.12} className="lg:col-span-1"><OrgRecentActivity orgSlug={orgSlug} /></SlideUp>
       </div>
+
     </div>
   );
 }

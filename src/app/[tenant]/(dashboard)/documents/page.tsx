@@ -1,43 +1,55 @@
 import { getServerSession } from "@/core/auth/getServerSession";
 import { resolvePrismaTenantId } from "@/core/tenant/tenantIdMap";
 import mockData from "@/mock/data.json";
+import { Card, CardHeader, CardBody, DataTable, type Column, Badge } from "@/components/ui";
 
 interface MockDocument {
-  id: string;
-  title: string;
-  department: string | null;
-  clearanceRequired: number;
-  createdAt: string;
+  id: string; title: string; department: string | null;
+  clearanceRequired: number; createdAt: string;
+  owner?: string;
 }
 
-/**
- * data.json has no "documents" collection (tenants/users/auditLogs only,
- * per its own spec) -- these are a handful of static rows per tenant,
- * purely decorative, so this page has something to render. There's no
- * database behind this frontend (removed: doesn't survive Vercel's
- * serverless filesystem) and no real backend documents endpoint yet.
- */
 function buildMockDocuments(tenantName: string): MockDocument[] {
   return [
-    { id: "doc-1", title: `${tenantName} Onboarding Guide`, department: null, clearanceRequired: 1, createdAt: "2024-01-20" },
-    { id: "doc-2", title: `${tenantName} Q3 Financials`, department: "Finance", clearanceRequired: 4, createdAt: "2024-09-30" },
-    { id: "doc-3", title: `${tenantName} Security Incident Log`, department: "IT Security", clearanceRequired: 5, createdAt: "2024-11-05" },
+    { id: "doc-1", title: `${tenantName} Onboarding Guide`,       department: null,        clearanceRequired: 1, createdAt: "2024-01-20" },
+    { id: "doc-2", title: `${tenantName} Q3 Financials`,          department: "Finance",   clearanceRequired: 4, createdAt: "2024-09-30" },
+    { id: "doc-3", title: `${tenantName} Security Incident Log`,  department: "IT Security", clearanceRequired: 5, createdAt: "2024-11-05" },
   ];
 }
+
+const COLUMNS: Column<MockDocument>[] = [
+  { key: "title",            header: "Title",              render: d => <span className="font-medium text-slate-800">{d.title}</span> },
+  { key: "department",       header: "Department",         render: d => <span className="text-slate-600">{d.department ?? "—"}</span> },
+  {
+    key: "clearanceRequired", header: "Clearance",
+    render: d => (
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }, (_, i) => (
+          <span key={i} className={`h-2 w-2 rounded-full ${i < d.clearanceRequired ? "bg-indigo-500" : "bg-slate-200"}`} />
+        ))}
+        <span className="ml-1.5 text-xs text-slate-400">L{d.clearanceRequired}</span>
+      </div>
+    ),
+  },
+  { key: "owner",            header: "Owner",              render: d => <span className="text-slate-600">{d.owner ?? "—"}</span> },
+  {
+    key: "createdAt",        header: "Created",
+    render: d => <Badge variant="muted" size="xs">{new Date(d.createdAt).toLocaleDateString()}</Badge>,
+  },
+];
 
 export default async function DocumentsPage() {
   const claims = await getServerSession();
 
   if (!claims) {
-    // middleware.ts (PEP) and SecurityGuard already gate this route -- this
-    // is a defensive fallback, not the primary authentication check.
     return <p className="text-sm text-slate-500">Your session could not be verified.</p>;
   }
 
   const tenantRecordId = resolvePrismaTenantId(claims.tenant_org);
-  const tenant = mockData.tenants[tenantRecordId as keyof typeof mockData.tenants];
-  const owner = mockData.users.find((user) => user.tenant_id === tenantRecordId);
-  const documents = tenant ? buildMockDocuments(tenant.name) : [];
+  const tenant  = mockData.tenants[tenantRecordId as keyof typeof mockData.tenants];
+  const owner   = mockData.users.find(u => u.tenant_id === tenantRecordId);
+  const rawDocs = tenant ? buildMockDocuments(tenant.name) : [];
+  const documents = rawDocs.map(d => ({ ...d, owner: owner?.email }));
 
   return (
     <div className="flex flex-col gap-8">
@@ -46,30 +58,14 @@ export default async function DocumentsPage() {
         <p className="mt-1 text-sm text-slate-500">Tenant-scoped document directory.</p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3 font-medium">Title</th>
-              <th className="px-4 py-3 font-medium">Department</th>
-              <th className="px-4 py-3 font-medium">Clearance Required</th>
-              <th className="px-4 py-3 font-medium">Owner</th>
-              <th className="px-4 py-3 font-medium">Created</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {documents.map((document) => (
-              <tr key={document.id}>
-                <td className="px-4 py-3 font-medium text-slate-800">{document.title}</td>
-                <td className="px-4 py-3 text-slate-600">{document.department ?? "—"}</td>
-                <td className="px-4 py-3 text-slate-600">{document.clearanceRequired}</td>
-                <td className="px-4 py-3 text-slate-600">{owner?.email ?? "—"}</td>
-                <td className="px-4 py-3 text-slate-500">{new Date(document.createdAt).toLocaleDateString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card>
+        <CardHeader title="Document Library" />
+        <DataTable<MockDocument>
+          columns={COLUMNS}
+          data={documents}
+          rowKey={d => d.id}
+        />
+      </Card>
     </div>
   );
 }

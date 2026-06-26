@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   CreditCard,
   Download,
   Gavel,
@@ -90,6 +91,7 @@ function buildNavSections(orgSlug: string): OrgNavSection[] {
       roles: ["owner", "admin", "member"],
       items: [
         { label: "Meal Service", icon: UtensilsCrossed, href: `${base}/meal-service/dashboard`, roles: ["owner", "admin", "member"] },
+        { label: "Meal Plans",   icon: ClipboardList,   href: `${base}/meal-service/plans`,     roles: ["owner", "admin", "member"] },
       ],
     },
   ];

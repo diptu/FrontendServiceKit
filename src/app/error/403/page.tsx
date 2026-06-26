@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
+import { Alert, Button } from "@/components/ui";
 
 interface ReasonCopy {
   title: string;
@@ -61,27 +62,19 @@ function ForbiddenContent() {
         <p className="mt-2 text-sm leading-relaxed text-slate-500">{copy.description}</p>
 
         {(resource || action || reason) && (
-          <div className="mt-6 space-y-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left text-xs text-slate-500">
-            <div className="font-semibold uppercase tracking-wide text-slate-400">Error 403 &middot; Access Denied</div>
+          <Alert variant="error" compact className="mt-6 text-left">
+            <p className="font-semibold uppercase tracking-wide">Error 403 · Access Denied</p>
             {action && resource && (
-              <div>
-                Action: <span className="font-mono text-slate-700">{action}</span> on{" "}
-                <span className="font-mono text-slate-700">{resource}</span>
-              </div>
+              <p>Action: <code className="font-mono">{action}</code> on <code className="font-mono">{resource}</code></p>
             )}
             {reason && (
-              <div>
-                Policy reason: <span className="font-mono text-slate-700">{reason}</span>
-              </div>
+              <p>Policy reason: <code className="font-mono">{reason}</code></p>
             )}
-          </div>
+          </Alert>
         )}
 
-        <Link
-          href="/"
-          className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          Return to My Workspace
+        <Link href="/" className="mt-6 block">
+          <Button fullWidth>Return to My Workspace</Button>
         </Link>
       </div>
     </div>

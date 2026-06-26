@@ -89,6 +89,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL("/tenant-not-found", request.url));
   }
 
+  // Component library preview — always pass through without auth or rewrite.
+  if (pathname === "/preview" || pathname.startsWith("/preview/")) {
+    return NextResponse.next();
+  }
+
   // Preview mode: /org/* routes are open to unauthenticated visitors until
   // role-based gates are enforced. Skip JWT auth and PEP; still do the tenant
   // rewrite so [tenant]/org/[orgSlug] resolves correctly.

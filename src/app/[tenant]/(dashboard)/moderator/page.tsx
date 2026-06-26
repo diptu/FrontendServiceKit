@@ -1,3 +1,5 @@
+import { Card, CardBody } from "@/components/ui";
+
 export default function ModeratorWorkspacePage() {
   return (
     <div className="flex flex-col gap-8">
@@ -8,16 +10,18 @@ export default function ModeratorWorkspacePage() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-700">Workspace tier: ADMIN or MODERATOR</h2>
-        <p className="mt-2 text-sm text-slate-500">
-          This route is gated by <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">RoleGuard</code> with{" "}
-          <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">
-            allowedRoles=[&quot;ADMIN&quot;, &quot;MODERATOR&quot;]
-          </code>
-          . No MFA requirement is enforced at this tier.
-        </p>
-      </div>
+      <Card>
+        <CardBody>
+          <h2 className="text-sm font-semibold text-slate-700">Workspace tier: ADMIN or MODERATOR</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            This route is gated by <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">RoleGuard</code> with{" "}
+            <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">
+              allowedRoles=[&quot;ADMIN&quot;, &quot;MODERATOR&quot;]
+            </code>
+            . No MFA requirement is enforced at this tier.
+          </p>
+        </CardBody>
+      </Card>
     </div>
   );
 }
