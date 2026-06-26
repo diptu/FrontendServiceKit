@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-export type PreviewRole = "owner" | "admin" | "member";
+export type PreviewRole = "owner" | "admin" | "moderator" | "member";
 
 export interface PreviewUser {
   id: string;
@@ -38,6 +38,17 @@ export const PREVIEW_USERS: readonly PreviewUser[] = [
     avatarBg: "bg-indigo-600",
     badgeBg: "bg-indigo-50",
     badgeText: "text-indigo-700",
+  },
+  {
+    id: "pu-moderator",
+    name: "John Whitaker",
+    email: "john.w@nutracorp.test",
+    role: "moderator",
+    roleLabel: "Moderator",
+    initials: "JW",
+    avatarBg: "bg-sky-600",
+    badgeBg: "bg-sky-50",
+    badgeText: "text-sky-700",
   },
   {
     id: "pu-member",

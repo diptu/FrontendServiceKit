@@ -32,12 +32,7 @@ export interface CardHeaderProps {
 }
 
 export function CardHeader({
-  title,
-  description,
-  action,
-  icon,
-  border = true,
-  className = "",
+  title, description, action, icon, border = true, className = "",
 }: CardHeaderProps) {
   return (
     <div

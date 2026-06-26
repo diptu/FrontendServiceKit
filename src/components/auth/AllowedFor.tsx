@@ -20,8 +20,10 @@ interface AllowedForProps {
 export default function AllowedFor({ roles, requiredScopes, fallback, children }: AllowedForProps) {
   const { user } = useAuth();
 
+  // No auth user = preview mode (unauthenticated visitors reach here because
+  // middleware bypasses JWT checks). Show everything so the full nav is visible.
   if (user === null) {
-    return fallback ?? null;
+    return <>{children}</>;
   }
 
   if (roles !== undefined && !roles.includes(user.role)) {

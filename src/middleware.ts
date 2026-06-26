@@ -94,67 +94,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  // Preview mode: /org/* routes are open to unauthenticated visitors until
-  // role-based gates are enforced. Skip JWT auth and PEP; still do the tenant
-  // rewrite so [tenant]/org/[orgSlug] resolves correctly.
-  if (pathname.startsWith("/org/")) {
-    const previewHeaders = new Headers(request.headers);
-    previewHeaders.set(TENANT_HEADER_NAME, tenantSlug);
-    return NextResponse.rewrite(
-      new URL(`/${tenantSlug}${pathname}`, request.url),
-      { request: { headers: previewHeaders } },
-    );
-  }
-
-  const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)?.value;
-  const claims = accessToken ? decodeJwtClaimsEdge(accessToken) : null;
-
-  if (!claims || isClaimsExpired(claims)) {
-    return redirectToLogin(request);
-  }
-
-  if (claims.tenant_org !== tenantSlug) {
-    return redirectToLockout(request, tenantSlug, claims.tenant_org);
-  }
-
-  // --- Policy Enforcement Point (PEP): delegate to the in-app PDP (core/policy) ---
-  // Pure, synchronous, no I/O -- negligible latency added to a request that
-  // already decodes a JWT and resolves a tenant on every hit.
-  const resourceType = mapPathToResourceType(pathname);
-  const action = mapMethodToAction(request.method);
-
-  const authorizationContext: AuthorizationContext = {
-    subject: {
-      id: claims.sub,
-      tenant_id: claims.tenant_org,
-      role: mapClaimRoleToPolicyRole(claims.role),
-      clearance: claims.clearance ?? 1,
-      department: claims.department,
-      mfa_verified: claims.is_mfa_verified,
-      account_locked: claims.account_locked ?? false,
-    },
-    resource: { type: resourceType, tenant_id: tenantSlug },
-    action,
-    environment: {
-      ip: request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? undefined,
-      timestamp: new Date().toISOString(),
-    },
-  };
-
-  const decision = policyDecisionPoint.evaluate(authorizationContext);
-
-  if (!decision.allowed) {
-    return redirectToForbidden(request, decision.reason, resourceType, action);
-  }
-  // --- end PEP ---
-
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set(TENANT_HEADER_NAME, tenantSlug);
-
+  // Preview mode: all tenant routes are open to unauthenticated visitors.
+  // Skip JWT auth and PEP; still do the tenant rewrite so [tenant]/* resolves.
+  // TODO: restore JWT + PEP enforcement when preview mode is disabled.
+  const previewHeaders = new Headers(request.headers);
+  previewHeaders.set(TENANT_HEADER_NAME, tenantSlug);
   const rewrittenPath = pathname === "/" ? `/${tenantSlug}` : `/${tenantSlug}${pathname}`;
-
   return NextResponse.rewrite(new URL(rewrittenPath, request.url), {
-    request: { headers: requestHeaders },
+    request: { headers: previewHeaders },
   });
 }
 

@@ -31,6 +31,13 @@ const STATS_BY_ROLE: Record<PreviewRole, OrgStat[]> = {
     { id: "roles",    label: "Roles",           value: "64",    subtext: "no change",                                        icon: ShieldCheck,      iconColor: "text-amber-500"   },
     { id: "sessions", label: "Active Sessions", value: "89",    delta: "+4.7%",  deltaPositive: true,  subtext: "active now", icon: MonitorSmartphone,iconColor: "text-emerald-500" },
   ],
+  moderator: [
+    { id: "users",    label: "Users",           value: "1,248", delta: "+4.6%",  deltaPositive: true,  subtext: "past month", icon: Users,            iconColor: "text-indigo-500"  },
+    { id: "groups",   label: "Groups",          value: "156",   delta: "+12.4%", deltaPositive: true,  subtext: "new groups", icon: UsersRound,       iconColor: "text-violet-500"  },
+    { id: "apps",     label: "Applications",    value: "28",    delta: "+1%",    deltaPositive: true,  subtext: "4 apps",    icon: AppWindow,        iconColor: "text-sky-500"     },
+    { id: "roles",    label: "Roles",           value: "64",    subtext: "no change",                                        icon: ShieldCheck,      iconColor: "text-amber-500"   },
+    { id: "sessions", label: "Active Sessions", value: "89",    delta: "+4.7%",  deltaPositive: true,  subtext: "active now", icon: MonitorSmartphone,iconColor: "text-emerald-500" },
+  ],
   member: [
     { id: "users",    label: "Visible Users",   value: "468",   delta: "+2.1%",  deltaPositive: true,  subtext: "in scope",   icon: Users,            iconColor: "text-indigo-500"  },
     { id: "groups",   label: "My Groups",       value: "32",    subtext: "joined",                                            icon: UsersRound,       iconColor: "text-violet-500"  },

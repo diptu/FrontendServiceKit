@@ -4,33 +4,27 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
 export interface AccordionItem {
-  key:      string;
-  title:    ReactNode;
-  content:  ReactNode;
+  key:       string;
+  title:     ReactNode;
+  content:   ReactNode;
   disabled?: boolean;
 }
 
 export interface AccordionProps {
-  items:      AccordionItem[];
-  multiple?:  boolean;
+  items:        AccordionItem[];
+  multiple?:    boolean;
   defaultOpen?: string[];
-  className?: string;
+  className?:   string;
 }
 
-export function Accordion({
-  items, multiple = false, defaultOpen = [], className = "",
-}: AccordionProps) {
+export function Accordion({ items, multiple = false, defaultOpen = [], className = "" }: AccordionProps) {
   const [open, setOpen] = useState<Set<string>>(new Set(defaultOpen));
 
   function toggle(key: string) {
     setOpen(prev => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        if (!multiple) next.clear();
-        next.add(key);
-      }
+      if (next.has(key)) { next.delete(key); }
+      else { if (!multiple) next.clear(); next.add(key); }
       return next;
     });
   }
@@ -54,14 +48,10 @@ export function Accordion({
               aria-expanded={isOpen}
             >
               <span className="text-sm font-semibold">{item.title}</span>
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-              />
+              <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </button>
             {isOpen && (
-              <div className="px-5 pb-4 text-sm text-slate-600 leading-relaxed">
-                {item.content}
-              </div>
+              <div className="px-5 pb-4 text-sm text-slate-600 leading-relaxed">{item.content}</div>
             )}
           </div>
         );

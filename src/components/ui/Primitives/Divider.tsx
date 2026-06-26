@@ -1,18 +1,15 @@
 import type { ReactNode } from "react";
 
 export interface DividerProps {
-  label?:      ReactNode;
+  label?:       ReactNode;
   orientation?: "horizontal" | "vertical";
-  className?:  string;
+  className?:   string;
 }
 
 export function Divider({ label, orientation = "horizontal", className = "" }: DividerProps) {
   if (orientation === "vertical") {
-    return (
-      <div className={`mx-2 self-stretch w-px bg-slate-200 ${className}`} role="separator" aria-orientation="vertical" />
-    );
+    return <div className={`mx-2 self-stretch w-px bg-slate-200 ${className}`} role="separator" aria-orientation="vertical" />;
   }
-
   if (label) {
     return (
       <div className={`flex items-center gap-3 ${className}`} role="separator">
@@ -22,6 +19,5 @@ export function Divider({ label, orientation = "horizontal", className = "" }: D
       </div>
     );
   }
-
   return <div className={`h-px w-full bg-slate-200 ${className}`} role="separator" />;
 }

@@ -22,8 +22,8 @@ export * from "./Modal";
 // ── Loading ───────────────────────────────────────────────────────────────
 export * from "./Loading";
 
-// ── Generic UI ────────────────────────────────────────────────────────────
-export * from "./UI";
+// ── Primitives (Button, Card, Dropdown, Tooltip, Divider, Accordion) ──────
+export * from "./Primitives";
 
 // ── Error ─────────────────────────────────────────────────────────────────
 export * from "./Error";

@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect } from "react";
 import { X, AlertTriangle, Trash2 } from "lucide-react";
-import { Button } from "../UI/Button";
+import { Button } from "../Primitives/Button";
 
 /* ── Size map ───────────────────────────────────────────────────────────── */
 const SIZE_MAP = {

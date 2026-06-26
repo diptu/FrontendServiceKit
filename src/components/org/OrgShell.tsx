@@ -57,19 +57,19 @@ function buildNavSections(orgSlug: string): OrgNavSection[] {
   return [
     {
       label: "Organization",
-      roles: ["owner", "admin", "member"],
+      roles: ["owner", "admin", "moderator", "member"],
       items: [
-        { label: "Users",            icon: Users,            href: `${base}/users`,            roles: ["owner", "admin", "member"] },
-        { label: "Groups",           icon: UsersRound,       href: `${base}/groups`,           roles: ["owner", "admin", "member"] },
-        { label: "Applications",     icon: AppWindow,        href: `${base}/applications`,     roles: ["owner", "admin", "member"] },
-        { label: "Roles",            icon: ShieldCheck,      href: `${base}/roles`,            roles: ["owner", "admin"] },
-        { label: "Permissions",      icon: KeyRound,         href: `${base}/permissions`,      roles: ["owner", "admin"] },
+        { label: "Users",            icon: Users,            href: `${base}/users`,            roles: ["owner", "admin", "moderator", "member"] },
+        { label: "Groups",           icon: UsersRound,       href: `${base}/groups`,           roles: ["owner", "admin", "moderator", "member"] },
+        { label: "Applications",     icon: AppWindow,        href: `${base}/applications`,     roles: ["owner", "admin", "moderator", "member"] },
+        { label: "Roles",            icon: ShieldCheck,      href: `${base}/roles`,            roles: ["owner", "admin", "moderator"] },
+        { label: "Permissions",      icon: KeyRound,         href: `${base}/permissions`,      roles: ["owner", "admin", "moderator"] },
         { label: "Service Accounts", icon: Server,           href: `${base}/service-accounts`, roles: ["owner", "admin"] },
       ],
     },
     {
       label: "Access & Security",
-      roles: ["owner", "admin"],
+      roles: ["owner", "admin", "moderator"],
       items: [
         { label: "Policies",        icon: Gavel,             href: `${base}/policies`         },
         { label: "Sessions",        icon: MonitorSmartphone, href: `${base}/sessions`         },
@@ -88,10 +88,9 @@ function buildNavSections(orgSlug: string): OrgNavSection[] {
     },
     {
       label: "Services",
-      roles: ["owner", "admin", "member"],
+      roles: ["owner", "admin", "moderator", "member"],
       items: [
-        { label: "Meal Service", icon: UtensilsCrossed, href: `${base}/meal-service/dashboard`, roles: ["owner", "admin", "member"] },
-        { label: "Meal Plans",   icon: ClipboardList,   href: `${base}/meal-service/plans`,     roles: ["owner", "admin", "member"] },
+        { label: "Meal Service", icon: UtensilsCrossed, href: `${base}/meal-service/plans`, roles: ["owner", "admin", "moderator", "member"] },
       ],
     },
   ];
@@ -196,6 +195,11 @@ function OrgShellInner({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  // Meal-service has its own dedicated shell — pass through to avoid double sidebars
+  if (pathname.includes("/meal-service")) {
+    return <>{children}</>;
+  }
+
   const overviewHref = `/org/${orgSlug}`;
   const navSections = buildNavSections(orgSlug);
 
@@ -256,28 +260,20 @@ function OrgShellInner({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        {/* Role-gated nav sections */}
+        {/* All nav sections visible in preview mode regardless of role */}
         <nav className="mt-2 flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-2">
-          {navSections
-            .filter((section) => section.roles.includes(currentUser.role))
-            .map((section) => {
-              const visibleItems = section.items.filter(
-                (item) => !item.roles || item.roles.includes(currentUser.role),
-              );
-              if (visibleItems.length === 0) return null;
-              return (
-                <div key={section.label} className="flex flex-col gap-0.5">
-                  {!isCollapsed && (
-                    <span className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                      {section.label}
-                    </span>
-                  )}
-                  {visibleItems.map((item) => (
-                    <NavLink key={item.label} item={item} isActive={isActive(item.href)} />
-                  ))}
-                </div>
-              );
-            })}
+          {navSections.map((section) => (
+            <div key={section.label} className="flex flex-col gap-0.5">
+              {!isCollapsed && (
+                <span className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  {section.label}
+                </span>
+              )}
+              {section.items.map((item) => (
+                <NavLink key={item.label} item={item} isActive={isActive(item.href)} />
+              ))}
+            </div>
+          ))}
         </nav>
 
         {/* Help card */}
