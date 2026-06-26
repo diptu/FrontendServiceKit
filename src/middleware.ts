@@ -89,6 +89,18 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL("/tenant-not-found", request.url));
   }
 
+  // Preview mode: /org/* routes are open to unauthenticated visitors until
+  // role-based gates are enforced. Skip JWT auth and PEP; still do the tenant
+  // rewrite so [tenant]/org/[orgSlug] resolves correctly.
+  if (pathname.startsWith("/org/")) {
+    const previewHeaders = new Headers(request.headers);
+    previewHeaders.set(TENANT_HEADER_NAME, tenantSlug);
+    return NextResponse.rewrite(
+      new URL(`/${tenantSlug}${pathname}`, request.url),
+      { request: { headers: previewHeaders } },
+    );
+  }
+
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE_NAME)?.value;
   const claims = accessToken ? decodeJwtClaimsEdge(accessToken) : null;
 
