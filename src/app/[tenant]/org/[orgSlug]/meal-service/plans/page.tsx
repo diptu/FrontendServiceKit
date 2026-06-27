@@ -393,28 +393,30 @@ function MemberView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div>
+      <FadeIn>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-800">Meal Plans</h1>
         <p className="mt-1 text-sm text-slate-500">
           Choose, manage and customise the meal plan that fits your goals and lifestyle.
         </p>
-      </div>
+      </FadeIn>
 
       {/* Feature highlights */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <StaggerContainer className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {FEATURE_HIGHLIGHTS.map(({ icon: Icon, title, desc }) => (
-          <div key={title} className="flex flex-col items-center gap-2 rounded-xl border border-slate-100 bg-white p-4 text-center shadow-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50">
-              <Icon className="h-5 w-5 text-indigo-600" strokeWidth={1.8} />
+          <StaggerItem key={title}>
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-slate-100 bg-white p-4 text-center shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50">
+                <Icon className="h-5 w-5 text-indigo-600" strokeWidth={1.8} />
+              </div>
+              <p className="text-xs font-semibold text-slate-800">{title}</p>
+              <p className="text-[11px] leading-snug text-slate-400">{desc}</p>
             </div>
-            <p className="text-xs font-semibold text-slate-800">{title}</p>
-            <p className="text-[11px] leading-snug text-slate-400">{desc}</p>
-          </div>
+          </StaggerItem>
         ))}
-      </div>
+      </StaggerContainer>
 
       {/* Plan cards + help sidebar */}
-      <div className="flex gap-5">
+      <SlideUp delay={0.06} className="flex gap-5">
         <div className="min-w-0 flex-1 flex flex-col gap-6">
           {/* Plan cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -548,7 +550,7 @@ function MemberView() {
             </CardBody>
           </Card>
         </div>
-      </div>
+      </SlideUp>
     </div>
   );
 }

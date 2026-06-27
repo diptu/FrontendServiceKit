@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect } from "react";
 import { X, AlertTriangle, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../Primitives/Button";
 
 /* ── Size map ───────────────────────────────────────────────────────────── */
@@ -37,50 +38,72 @@ export function Modal({
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
-  if (!open) return null;
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        aria-hidden="true"
-        onClick={onClose}
-      />
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+            aria-hidden="true"
+            onClick={onClose}
+          />
 
-      <div
-        className={`relative z-10 w-full ${SIZE_MAP[size]} rounded-2xl bg-white shadow-xl`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
-          <div>
-            <h2 id="modal-title" className="text-base font-bold text-slate-900">{title}</h2>
-            {description && (
-              <p className="mt-0.5 text-xs text-slate-400">{description}</p>
+          {/* Dialog panel */}
+          <motion.div
+            key="panel"
+            initial={{ opacity: 0, scale: 0.93, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            className={`relative z-10 w-full ${SIZE_MAP[size]} rounded-2xl bg-white shadow-xl`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4">
+              <div>
+                <h2 id="modal-title" className="text-base font-bold text-slate-900">{title}</h2>
+                {description && (
+                  <p className="mt-0.5 text-xs text-slate-400">{description}</p>
+                )}
+              </div>
+              {!hideClose && (
+                <motion.button
+                  type="button"
+                  onClick={onClose}
+                  whileHover={{ scale: 1.1, backgroundColor: "#f1f5f9" }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:text-slate-700 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </motion.button>
+              )}
+            </div>
+
+            <div className="px-6 py-5">{children}</div>
+
+            {footer && (
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
+                {footer}
+              </div>
             )}
-          </div>
-          {!hideClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+          </motion.div>
         </div>
-
-        <div className="px-6 py-5">{children}</div>
-
-        {footer && (
-          <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -133,9 +156,14 @@ export function ConfirmationDialog({
       }
     >
       <div className="flex flex-col items-center gap-4 text-center">
-        <div className={`flex h-14 w-14 items-center justify-center rounded-full ${iconBg}`}>
+        <motion.div
+          initial={{ scale: 0, rotate: -10 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 400, damping: 22, delay: 0.1 }}
+          className={`flex h-14 w-14 items-center justify-center rounded-full ${iconBg}`}
+        >
           <Icon className={`h-6 w-6 ${iconColor}`} />
-        </div>
+        </motion.div>
         <div>
           <p className="text-base font-bold text-slate-900">{title}</p>
           {description && (

@@ -1,21 +1,36 @@
+"use client";
+
 import type { ReactNode, HTMLAttributes } from "react";
+import { motion } from "framer-motion";
 
 /* ── Card ──────────────────────────────────────────────────────────────── */
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   noPadding?: boolean;
+  hover?:     boolean;
   children:   ReactNode;
 }
 
-export function Card({ noPadding = false, children, className = "", ...props }: CardProps) {
+export function Card({ noPadding = false, hover = false, children, className = "", ...props }: CardProps) {
+  const classes = [
+    "rounded-xl border border-slate-200 bg-white shadow-sm",
+    className,
+  ].join(" ");
+
+  if (hover) {
+    return (
+      <motion.div
+        whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.09)" }}
+        transition={{ type: "spring", stiffness: 400, damping: 28 }}
+        className={classes}
+        {...(props as React.ComponentPropsWithoutRef<typeof motion.div>)}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
   return (
-    <div
-      className={[
-        "rounded-xl border border-slate-200 bg-white shadow-sm",
-        noPadding ? "" : "",
-        className,
-      ].join(" ")}
-      {...props}
-    >
+    <div className={classes} {...props}>
       {children}
     </div>
   );

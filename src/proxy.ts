@@ -69,7 +69,7 @@ function redirectToForbidden(
  * consistent with every other guard here, not a substitute for the gateway
  * enforcing ABAC on the actual data operations.
  */
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const hostnameResult = resolveTenantHostname(request.headers.get("host"));
 

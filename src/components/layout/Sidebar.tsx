@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import AllowedFor from "@/components/auth/AllowedFor";
+import type { JWTClaims } from "@/core/auth/authService";
 
 interface NavItem {
   label: string;
@@ -53,7 +54,7 @@ interface WorkspaceTierLink {
   label: string;
   href: string;
   icon: LucideIcon;
-  allowedRoles: ("ADMIN" | "MODERATOR" | "MEMBER")[];
+  allowedRoles: JWTClaims["role"][];
 }
 
 const WORKSPACE_TIER_LINKS: WorkspaceTierLink[] = [

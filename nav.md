@@ -124,56 +124,51 @@ Base path: `/org/nutracorp`
 
 ## 4. Meal Service Shell (`src/components/meal-service/MealServiceShell.tsx`)
 
-Sub-app shell inside `[tenant]/org/[orgSlug]/meal-service/`. Renders different nav depending on whether the viewer is **staff** (admin/moderator) or **member**.
+Sub-app shell inside `[tenant]/org/[orgSlug]/meal-service/`. The sidebar renders a **single unified nav** (`buildFullNav`) for all roles — there is no staff/member split in the shell itself. Role-specific page content is handled inside each page (e.g. `dashboard/page.tsx` switches between `OwnerAdminDashboard` and `MemberDashboard` based on `currentUser.role`).
 
 Base path: `/org/nutracorp/meal-service`
 
-### Staff Navigation
+### Main Menu
 
-#### Main Menu
+Items are sorted A→Z as they appear in `buildFullNav`.
 
 | Label | Relative path | Example URL |
 |---|---|---|
-| Overview | *(base)* | `http://applecorp.localhost:3001/org/nutracorp/meal-service` |
-| Orders | `/orders` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/orders` |
+| Analytics | `/analytics` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/analytics` |
+| Cost Generation | `/cost-generation` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/cost-generation` |
+| Customers | `/customers` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/customers` |
+| Delivery Tracking | `/tracking` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/tracking` |
+| Ingredients | `/ingredients` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/ingredients` |
 | Meal Plans | `/plans` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/plans` |
 | Members | `/members` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/members` |
-| Nutrition | `/nutrition` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/nutrition` |
-| Ingredients | `/ingredients` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/ingredients` |
 | Menus | `/menus` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/menus` |
-| Analytics | `/analytics` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/analytics` |
-| Customers | `/customers` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/customers` |
+| My Claims | `/claims` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/claims` |
+| Notifications | `/notifications` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/notifications` |
+| Nutrition | `/nutrition` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/nutrition` |
+| Order History | `/order-history` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/order-history` |
+| Orders | `/orders` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/orders` |
+| Overview | *(base)* | `http://applecorp.localhost:3001/org/nutracorp/meal-service` |
+| Recipes | `/recepe` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/recepe` |
 | Reports | `/reports` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/reports` |
 | Reviews | `/reviews` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/reviews` |
+| Today's Meals | `/today` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/today` |
+| Weekly Planner | `/planner` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/planner` |
 
-#### Settings
+### Settings
 
 | Label | Relative path | Example URL |
 |---|---|---|
 | Bills & Permissions | `/billing` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/billing` |
 | System Settings | `/settings` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/settings` |
 
-### Member Navigation
+### Support
 
-#### Main Menu
-
-| Label | Relative path | Example URL |
-|---|---|---|
-| Overview | *(base)* | `http://applecorp.localhost:3001/org/nutracorp/meal-service` |
-| Today's Meals | `/today` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/today` |
-| My Plans | `/plans` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/plans` |
-| My Claims | `/claims` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/claims` |
-| Delivery Tracking | `/tracking` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/tracking` |
-| Nutrition | `/nutrition` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/nutrition` |
-| Order History | `/order-history` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/order-history` |
-| Reviews | `/reviews` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/reviews` |
-
-#### Support
+Nav links only — no pages exist yet for these routes.
 
 | Label | Relative path | Example URL |
 |---|---|---|
-| FAQ & Support | `/faq` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/faq` |
-| Contact Support | `/support` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/support` |
+| Contact Support | `/support` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/support` *(no page)* |
+| FAQ & Support | `/faq` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/faq` *(no page)* |
 
 ---
 
@@ -293,26 +288,33 @@ Reached via middleware rewrite from the tenant subdomain. Browser URL never show
 
 ### Meal Service Routes (`[tenant]/org/[orgSlug]/meal-service/`)
 
-| Route | Example URL | File |
-|---|---|---|
-| `/org/{orgSlug}/meal-service` | `http://applecorp.localhost:3001/org/nutracorp/meal-service` | `meal-service/page.tsx` |
-| `/org/{orgSlug}/meal-service/plans` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/plans` | `meal-service/plans/page.tsx` |
-| `/org/{orgSlug}/meal-service/plans/new` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/plans/new` | `meal-service/plans/new/page.tsx` |
-| `/org/{orgSlug}/meal-service/orders` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/orders` | `meal-service/orders/page.tsx` |
-| `/org/{orgSlug}/meal-service/members` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/members` | `meal-service/members/page.tsx` |
-| `/org/{orgSlug}/meal-service/nutrition` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/nutrition` | `meal-service/nutrition/page.tsx` |
-| `/org/{orgSlug}/meal-service/ingredients` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/ingredients` | `meal-service/ingredients/page.tsx` |
-| `/org/{orgSlug}/meal-service/menus` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/menus` | `meal-service/menus/page.tsx` |
-| `/org/{orgSlug}/meal-service/analytics` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/analytics` | `meal-service/analytics/page.tsx` |
-| `/org/{orgSlug}/meal-service/customers` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/customers` | `meal-service/customers/page.tsx` |
-| `/org/{orgSlug}/meal-service/reports` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/reports` | `meal-service/reports/page.tsx` |
-| `/org/{orgSlug}/meal-service/reviews` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/reviews` | `meal-service/reviews/page.tsx` |
-| `/org/{orgSlug}/meal-service/today` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/today` | `meal-service/today/page.tsx` |
-| `/org/{orgSlug}/meal-service/claims` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/claims` | `meal-service/claims/page.tsx` |
-| `/org/{orgSlug}/meal-service/tracking` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/tracking` | `meal-service/tracking/page.tsx` |
-| `/org/{orgSlug}/meal-service/order-history` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/order-history` | `meal-service/order-history/page.tsx` |
-| `/org/{orgSlug}/meal-service/billing` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/billing` | `meal-service/billing/page.tsx` |
-| `/org/{orgSlug}/meal-service/settings` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/settings` | `meal-service/settings/page.tsx` |
+Pages that render role-aware content (owner/admin/member) branch internally; the URL and file are the same for all roles.
+
+| Route | Example URL | File | Notes |
+|---|---|---|---|
+| `/org/{orgSlug}/meal-service` | `http://applecorp.localhost:3001/org/nutracorp/meal-service` | `meal-service/page.tsx` | Weekly meal planner / calendar with PDF & CSV export |
+| `/org/{orgSlug}/meal-service/dashboard` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/dashboard` | `meal-service/dashboard/page.tsx` | Role-aware dashboard: `OwnerAdminDashboard` or `MemberDashboard` |
+| `/org/{orgSlug}/meal-service/analytics` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/analytics` | `meal-service/analytics/page.tsx` | Rich analytics: 6 stat cards, dual-axis area chart, status donut, top plans bar, top meals table, orders by day, location table, customer growth/retention, segments pie |
+| `/org/{orgSlug}/meal-service/cost-generation` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/cost-generation` | `meal-service/cost-generation/page.tsx` | Upload receipt → extract items → cost per meal estimate, cost breakdown pie, paid calculations, tips sidebar |
+| `/org/{orgSlug}/meal-service/billing` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/billing` | `meal-service/billing/page.tsx` | My Bill: 4 stat cards, billing overview area chart (plan/paid/outstanding), paginated invoice table, account summary, payment methods, outstanding alert |
+| `/org/{orgSlug}/meal-service/claims` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/claims` | `meal-service/claims/page.tsx` | |
+| `/org/{orgSlug}/meal-service/customers` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/customers` | `meal-service/customers/page.tsx` | |
+| `/org/{orgSlug}/meal-service/ingredients` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/ingredients` | `meal-service/ingredients/page.tsx` | |
+| `/org/{orgSlug}/meal-service/members` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/members` | `meal-service/members/page.tsx` | |
+| `/org/{orgSlug}/meal-service/menus` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/menus` | `meal-service/menus/page.tsx` | Also aliased via `/recepe` (see below) |
+| `/org/{orgSlug}/meal-service/nutrition` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/nutrition` | `meal-service/nutrition/page.tsx` | |
+| `/org/{orgSlug}/meal-service/notifications` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/notifications` | `meal-service/notifications/page.tsx` | Notification centre: tab filters (All/Unread/Read/type), search+priority filter, paginated list with mark-as-read, summary sidebar, by-channel pie, quick actions |
+| `/org/{orgSlug}/meal-service/order-history` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/order-history` | `meal-service/order-history/page.tsx` | 6 stat cards, searchable+filterable table with customer avatars, pagination, order overview donut sidebar, quick actions |
+| `/org/{orgSlug}/meal-service/orders` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/orders` | `meal-service/orders/page.tsx` | |
+| `/org/{orgSlug}/meal-service/plans` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/plans` | `meal-service/plans/page.tsx` | Role-aware: `OwnerAdminView` or `MemberView` |
+| `/org/{orgSlug}/meal-service/plans/new` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/plans/new` | `meal-service/plans/new/page.tsx` | |
+| `/org/{orgSlug}/meal-service/planner` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/planner` | `meal-service/planner/page.tsx` | Weekly planner view |
+| `/org/{orgSlug}/meal-service/recepe` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/recepe` | `meal-service/recepe/page.tsx` | Re-exports `menus/page.tsx`; URL typo intentional (matches nav href) |
+| `/org/{orgSlug}/meal-service/reports` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/reports` | `meal-service/reports/page.tsx` | 3-tab layout: Overview (charts + revenue summary table), Templates (generate/download), Custom Reports (scheduled report configs) |
+| `/org/{orgSlug}/meal-service/reviews` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/reviews` | `meal-service/reviews/page.tsx` | |
+| `/org/{orgSlug}/meal-service/settings` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/settings` | `meal-service/settings/page.tsx` | 6-tab settings (Organization, Meal Service, Payment, Notifications, Preferences, Integrations); storage pie, subscription card, system info |
+| `/org/{orgSlug}/meal-service/today` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/today` | `meal-service/today/page.tsx` | |
+| `/org/{orgSlug}/meal-service/tracking` | `http://applecorp.localhost:3001/org/nutracorp/meal-service/tracking` | `meal-service/tracking/page.tsx` | |
 
 ---
 

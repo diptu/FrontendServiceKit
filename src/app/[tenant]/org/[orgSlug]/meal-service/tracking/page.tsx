@@ -1,3 +1,4 @@
+// DISABLED — removed from sidebar nav; route kept for future use.
 "use client";
 
 import { Bike, CheckCircle2, Clock, MapPin, Package, Phone } from "lucide-react";

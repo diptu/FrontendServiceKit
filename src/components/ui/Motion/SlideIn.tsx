@@ -27,7 +27,7 @@ export function SlideIn({
       initial={{ opacity: 0, x }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once, margin: "-60px" }}
-      transition={{ duration, delay, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration, delay, ease: [0.22, 1, 0.36, 1] as const }}
       className={className}
       {...props}
     >

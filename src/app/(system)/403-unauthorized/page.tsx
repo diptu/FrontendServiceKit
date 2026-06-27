@@ -43,7 +43,7 @@ function UnauthorizedContent() {
 
   const reason = searchParams.get("reason");
   const copy = (reason && REASON_COPY[reason]) || DEFAULT_COPY;
-  // Tenant identity comes from the hostname now (see src/middleware.ts), so
+  // Tenant identity comes from the hostname now (see src/proxy.ts), so
   // "my workspace" is always just this same subdomain's root.
   const homeHref = "/";
 

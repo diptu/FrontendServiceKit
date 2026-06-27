@@ -10,7 +10,7 @@ import {
   CheckCircle, Flame, Dumbbell, Wheat, MapPin, ChevronRight,
 } from "lucide-react";
 import { usePreviewUser } from "@/components/org/PreviewUserContext";
-import { Button, Badge, StatusBadge } from "@/components/ui";
+import { Button, Badge, StatusBadge, FadeIn, SlideUp, StaggerContainer, StaggerItem } from "@/components/ui";
 
 /* ── Chart data ────────────────────────────────────────────────────────── */
 const ORDER_TREND = [
@@ -146,7 +146,7 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
   return (
     <div className="flex flex-col gap-6">
       {/* Welcome */}
-      <div>
+      <FadeIn>
         <h1 className="text-xl font-bold text-slate-900">
           Welcome back, {name}! <span className="text-2xl">🍽</span>
         </h1>
@@ -155,19 +155,19 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
             ? "Here's what's happening across your meal service today."
             : "Here's a quick look at your meal service operations."}
         </p>
-      </div>
+      </FadeIn>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
-        <MealStatCard icon={ShoppingBag}      label="Total Orders"     value="2,568"   iconBg="bg-indigo-500"  trend="+14% vs last week"  up />
-        <MealStatCard icon={DollarSign}       label="Total Revenue"    value="$48,750" iconBg="bg-emerald-500" trend="+9% vs last month"   up />
-        <MealStatCard icon={UtensilsCrossed}  label="Meals Served"     value="5,842"   iconBg="bg-violet-500"  trend="+11% this month"     up />
-        <MealStatCard icon={Users}            label="Active Customers" value="1,248"   iconBg="bg-sky-500"     trend="+6% this month"      up />
-        <MealStatCard icon={Clock}            label="Pending Orders"   value="156"     iconBg="bg-amber-500"   trend="-3% vs yesterday"    up />
-      </div>
+      <StaggerContainer className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+        <StaggerItem><MealStatCard icon={ShoppingBag}      label="Total Orders"     value="2,568"   iconBg="bg-indigo-500"  trend="+14% vs last week"  up /></StaggerItem>
+        <StaggerItem><MealStatCard icon={DollarSign}       label="Total Revenue"    value="$48,750" iconBg="bg-emerald-500" trend="+9% vs last month"   up /></StaggerItem>
+        <StaggerItem><MealStatCard icon={UtensilsCrossed}  label="Meals Served"     value="5,842"   iconBg="bg-violet-500"  trend="+11% this month"     up /></StaggerItem>
+        <StaggerItem><MealStatCard icon={Users}            label="Active Customers" value="1,248"   iconBg="bg-sky-500"     trend="+6% this month"      up /></StaggerItem>
+        <StaggerItem><MealStatCard icon={Clock}            label="Pending Orders"   value="156"     iconBg="bg-amber-500"   trend="-3% vs yesterday"    up /></StaggerItem>
+      </StaggerContainer>
 
       {/* Row 2: Order trend + Donut */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+      <SlideUp className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         {/* Line chart */}
         <div className="lg:col-span-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
@@ -223,10 +223,10 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
             ))}
           </div>
         </div>
-      </div>
+      </SlideUp>
 
       {/* Row 3: Top meals + Revenue */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+      <SlideUp delay={0.06} className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         {/* Top meals */}
         <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -282,10 +282,10 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
+      </SlideUp>
 
       {/* Row 4: Recent orders + Inventory */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+      <SlideUp delay={0.08} className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         {/* Recent orders */}
         <div className="lg:col-span-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -348,11 +348,11 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
             </div>
           )}
         </div>
-      </div>
+      </SlideUp>
 
       {/* Admin-only: Active Kitchens */}
       {!isOwner && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <SlideUp delay={0.1} className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="border-b border-slate-100 px-5 py-4">
               <h2 className="text-sm font-semibold text-slate-900">Active Kitchens</h2>
@@ -404,7 +404,7 @@ function OwnerAdminDashboard({ name, isOwner }: { name: string; isOwner: boolean
               </div>
             </div>
           </div>
-        </div>
+        </SlideUp>
       )}
     </div>
   );
@@ -418,22 +418,22 @@ function MemberDashboard({ name }: { name: string }) {
   return (
     <div className="flex flex-col gap-6">
       {/* Welcome */}
-      <div>
+      <FadeIn>
         <h1 className="text-xl font-bold text-slate-900">
           Welcome back, {name.split(" ")[0]}! <span className="text-2xl">🍽</span>
         </h1>
         <p className="mt-0.5 text-sm text-slate-500">Here&apos;s your meal tracker for today.</p>
-      </div>
+      </FadeIn>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <MealStatCard icon={UtensilsCrossed} label="Meals Today"      value="3"     iconBg="bg-indigo-500"  sub="Tracked today"     />
-        <MealStatCard icon={Flame}           label="Calories Consumed" value="1,850" iconBg="bg-orange-500" sub="of 2,400 kcal goal" />
-        <MealStatCard icon={ShoppingBag}     label="Orders Placed"    value="12"    iconBg="bg-violet-500"  sub="This month"        />
-        <MealStatCard icon={Bike}            label="Active Delivery"  value="1"     iconBg="bg-sky-500"     sub="Est. 12:30 PM"     />
-      </div>
+      <StaggerContainer className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StaggerItem><MealStatCard icon={UtensilsCrossed} label="Meals Today"      value="3"     iconBg="bg-indigo-500"  sub="Tracked today"     /></StaggerItem>
+        <StaggerItem><MealStatCard icon={Flame}           label="Calories Consumed" value="1,850" iconBg="bg-orange-500" sub="of 2,400 kcal goal" /></StaggerItem>
+        <StaggerItem><MealStatCard icon={ShoppingBag}     label="Orders Placed"    value="12"    iconBg="bg-violet-500"  sub="This month"        /></StaggerItem>
+        <StaggerItem><MealStatCard icon={Bike}            label="Active Delivery"  value="1"     iconBg="bg-sky-500"     sub="Est. 12:30 PM"     /></StaggerItem>
+      </StaggerContainer>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+      <SlideUp className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         {/* Today's meal schedule */}
         <div className="lg:col-span-3 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4">
@@ -531,10 +531,10 @@ function MemberDashboard({ name }: { name: string }) {
             </p>
           </div>
         </div>
-      </div>
+      </SlideUp>
 
       {/* Recommended meals */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <SlideUp delay={0.06} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <h2 className="text-sm font-semibold text-slate-900">Recommended Meals</h2>
           <button type="button" className="text-xs font-medium text-indigo-600 hover:text-indigo-500">View all →</button>
@@ -553,10 +553,10 @@ function MemberDashboard({ name }: { name: string }) {
             </div>
           ))}
         </div>
-      </div>
+      </SlideUp>
 
       {/* Recent orders */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <SlideUp delay={0.08} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <h2 className="text-sm font-semibold text-slate-900">My Recent Orders</h2>
           <button type="button" className="text-xs font-medium text-indigo-600 hover:text-indigo-500">Order history →</button>
@@ -586,7 +586,7 @@ function MemberDashboard({ name }: { name: string }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </SlideUp>
     </div>
   );
 }

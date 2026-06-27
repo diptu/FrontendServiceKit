@@ -97,12 +97,10 @@ const TOC = [
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 export default function PreviewPage() {
-  /* B2 modal state */
   const [modalOpen,   setModal]   = useState(false);
   const [confirmOpen, setConfirm] = useState(false);
   const [deleteOpen,  setDelete]  = useState(false);
 
-  /* B2 pagination */
   const [page, setPage]         = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch]     = useState("");
@@ -111,7 +109,6 @@ export default function PreviewPage() {
     !tableSearch || u.name.toLowerCase().includes(tableSearch.toLowerCase()) || u.email.toLowerCase().includes(tableSearch.toLowerCase())
   );
 
-  /* B3 state */
   const [tab1,    setTab1]    = useState("overview");
   const [tab2,    setTab2]    = useState("members");
   const [tab3,    setTab3]    = useState("details");
@@ -122,7 +119,6 @@ export default function PreviewPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div>
@@ -140,7 +136,6 @@ export default function PreviewPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-6 py-8 flex gap-8">
-        {/* TOC */}
         <aside className="hidden lg:block w-44 shrink-0">
           <nav className="sticky top-24 flex flex-col gap-0.5">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Components</p>
@@ -155,8 +150,6 @@ export default function PreviewPage() {
         </aside>
 
         <div className="flex-1 min-w-0 flex flex-col gap-12">
-
-          {/* ━━━━ BATCH 1 ━━━━ */}
 
           <Section title="Badge" id="badge" batch={1}>
             <Card noPadding><CardBody className="flex flex-col gap-6">
@@ -293,8 +286,6 @@ export default function PreviewPage() {
             </div>
           </Section>
 
-          {/* ━━━━ BATCH 2 ━━━━ */}
-
           <Section title="Spinner & Skeletons" id="spinner" batch={2}>
             <Card noPadding><CardBody className="flex flex-col gap-6">
               <Row label="Spinner sizes">
@@ -362,10 +353,6 @@ export default function PreviewPage() {
                 <Button icon={AlertTriangle} variant="warning" onClick={() => setConfirm(true)}>Confirmation Dialog</Button>
                 <Button icon={Trash2}        variant="danger"  onClick={() => setDelete(true)}>Delete Dialog</Button>
               </Row>
-              <div className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-xs text-slate-500">
-                <p><strong>Available:</strong> Modal (sm/md/lg/xl) · ConfirmationDialog (danger/warning/primary) · DeleteDialog</p>
-                <p className="mt-1">Backdrop click + Escape key both close the modal.</p>
-              </div>
             </CardBody></Card>
             <Modal open={modalOpen} onClose={() => setModal(false)}
               title="Edit Organization" description="Update your org name and status."
@@ -387,9 +374,6 @@ export default function PreviewPage() {
                 <SearchBox value={search} onChange={setSearch} size="md" placeholder="Medium search…" />
                 <SearchBox value={search} onChange={setSearch} size="lg" placeholder="Large search…" />
               </Row>
-              <Row label="With value (shows clear ✕)">
-                <SearchBox value="active users" onChange={() => {}} placeholder="Search…" />
-              </Row>
             </CardBody></Card>
           </Section>
 
@@ -400,12 +384,6 @@ export default function PreviewPage() {
                   <Pagination total={287} page={page} pageSize={pageSize}
                     onPageChange={setPage} onPageSizeChange={setPageSize} />
                 </div>
-              </Row>
-              <Row label="Small dataset (no ellipsis)">
-                <div className="w-full"><Pagination total={45} page={1} pageSize={10} onPageChange={() => {}} /></div>
-              </Row>
-              <Row label="Empty">
-                <div className="w-full"><Pagination total={0} page={1} pageSize={10} onPageChange={() => {}} /></div>
               </Row>
             </CardBody></Card>
           </Section>
@@ -440,25 +418,14 @@ export default function PreviewPage() {
                 emptyDescription="Try adjusting your search."
                 emptyIcon={Users}
               />
-              <Pagination total={filteredData.length} page={1} pageSize={10} onPageChange={() => {}} />
-            </div>
-            <div className="mt-4">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Loading state</p>
-              <DataTable columns={[{key:"a",header:"Name"},{key:"b",header:"Role"},{key:"c",header:"Status"},{key:"d",header:"Date"}]}
-                data={[]} rowKey={() => ""} loading skeletonRows={4} />
             </div>
           </Section>
-
-          {/* ━━━━ BATCH 3 ━━━━ */}
 
           <Section title="Tabs" id="tabs" batch={3}>
             <Card noPadding><CardBody className="flex flex-col gap-8">
               <div className="flex flex-col gap-3">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Underline (default)</p>
-                <Tabs
-                  variant="underline"
-                  activeKey={tab1}
-                  onChange={setTab1}
+                <Tabs variant="underline" activeKey={tab1} onChange={setTab1}
                   tabs={[
                     { key: "overview", label: "Overview", icon: LayoutDashboard, badge: 3 },
                     { key: "users",    label: "Users",    icon: Users,           badge: 24 },
@@ -468,7 +435,6 @@ export default function PreviewPage() {
                 />
                 <TabPanel activeKey={tab1} tabKey="overview"><p className="text-sm text-slate-600 pt-2">Overview panel content.</p></TabPanel>
                 <TabPanel activeKey={tab1} tabKey="users"><p className="text-sm text-slate-600 pt-2">Users panel — {TABLE_DATA.length} records.</p></TabPanel>
-                <TabPanel activeKey={tab1} tabKey="policies"><p className="text-sm text-slate-600 pt-2">Policies panel content.</p></TabPanel>
               </div>
               <div className="flex flex-col gap-3">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Pills</p>
@@ -487,11 +453,6 @@ export default function PreviewPage() {
                   { key: "logs",     label: "Logs", badge: 12 },
                 ]} />
               </div>
-              <div className="flex flex-col gap-3">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Size: sm</p>
-                <Tabs variant="underline" size="sm" activeKey="a" onChange={() => {}}
-                  tabs={[{key:"a",label:"All"},{key:"b",label:"Pending",badge:4},{key:"c",label:"Approved"}]} />
-              </div>
             </CardBody></Card>
           </Section>
 
@@ -500,101 +461,57 @@ export default function PreviewPage() {
               <Row label="With home icon">
                 <Breadcrumb showHome items={[{ label: "Organizations" }, { label: "NutraCorp", href: "#" }, { label: "Settings" }]} />
               </Row>
-              <Row label="Without home">
-                <Breadcrumb items={[{ label: "Groups", href: "#" }, { label: "Engineering", href: "#" }, { label: "Members" }]} />
-              </Row>
-              <Row label="Single level">
-                <Breadcrumb showHome items={[{ label: "Users" }]} />
-              </Row>
-              <Row label="Deep path">
-                <Breadcrumb items={[
-                  { label: "Org", href: "#" }, { label: "NutraCorp", href: "#" },
-                  { label: "Groups", href: "#" }, { label: "Engineering", href: "#" }, { label: "Permissions" },
-                ]} />
-              </Row>
             </CardBody></Card>
           </Section>
 
           <Section title="FilterBar" id="filterbar" batch={3}>
             <Card noPadding><CardBody className="flex flex-col gap-6">
               <div className="flex flex-col gap-3">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">FilterBar (single-select)</p>
                 <FilterBar value={filter} onChange={setFilter} options={[
                   { label: "Active",    value: "active",    count: 42 },
                   { label: "Pending",   value: "pending",   count: 8  },
                   { label: "Suspended", value: "suspended", count: 3  },
                   { label: "Inactive",  value: "inactive",  count: 15 },
                 ]} />
-                <p className="text-xs text-slate-400">Selected: <code className="font-mono text-indigo-500">{filter || "all"}</code></p>
               </div>
               <div className="flex flex-col gap-3">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">FilterChips (multi-select)</p>
                 <FilterChips value={chips} onChange={setChips} options={[
                   { label: "Admin",     value: "admin"     },
                   { label: "Moderator", value: "moderator" },
                   { label: "Developer", value: "developer" },
                   { label: "Viewer",    value: "viewer"    },
-                  { label: "Support",   value: "support"   },
                 ]} />
-                <p className="text-xs text-slate-400">Selected: <code className="font-mono text-indigo-500">[{chips.join(", ") || "none"}]</code></p>
               </div>
             </CardBody></Card>
           </Section>
 
           <Section title="Drawer" id="drawer" batch={3}>
-            <Card noPadding><CardBody className="flex flex-col gap-4">
+            <Card noPadding><CardBody>
               <Row label="Triggers">
                 <Button icon={BookOpen}           onClick={() => setDrawerR(true)}>Open Right Drawer</Button>
                 <Button icon={BookOpen} variant="secondary" onClick={() => setDrawerL(true)}>Open Left Drawer</Button>
               </Row>
-              <div className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-xs text-slate-500">
-                <p><strong>Props:</strong> side (left/right) · size (sm/md/lg/xl) · title · description · footer</p>
-                <p className="mt-1">Backdrop click + Escape key close the drawer. Body scrolls independently.</p>
-              </div>
             </CardBody></Card>
-
             <Drawer open={drawerR} onClose={() => setDrawerR(false)}
               title="User Details" description="Sarah Mitchell · sarah.m@nutracorp.test"
               footer={<><Button variant="secondary" onClick={() => setDrawerR(false)}>Close</Button><Button icon={Edit2}>Edit User</Button></>}>
-              <div className="flex flex-col gap-5">
-                <div className="flex items-center gap-3">
-                  <Avatar name="Sarah Mitchell" size="xl" status="online" />
-                  <div>
-                    <p className="font-semibold text-slate-900">Sarah Mitchell</p>
-                    <p className="text-sm text-slate-500">sarah.m@nutracorp.test</p>
-                    <div className="mt-1 flex gap-1.5"><RoleBadge role="Owner" /><StatusBadge status="active" dot /></div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  {[["Department","Engineering"],["Location","San Francisco"],["Joined","Jan 1, 2024"],["Last active","2 min ago"]].map(([k,v]) => (
-                    <div key={k} className="flex flex-col"><span className="text-xs text-slate-400">{k}</span><span className="font-medium text-slate-800">{v}</span></div>
-                  ))}
-                </div>
+              <div className="flex items-center gap-3">
+                <Avatar name="Sarah Mitchell" size="xl" status="online" />
                 <div>
-                  <p className="mb-2 text-xs font-semibold text-slate-500">Groups (3)</p>
-                  <div className="flex flex-col gap-1.5">
-                    {["Engineering","All Staff","Product Leads"].map(g => (
-                      <div key={g} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                        <div className="flex items-center gap-2"><Avatar name={g} size="xs" /><span className="text-sm text-slate-700">{g}</span></div>
-                        <RoleBadge role="Developer" />
-                      </div>
-                    ))}
-                  </div>
+                  <p className="font-semibold text-slate-900">Sarah Mitchell</p>
+                  <p className="text-sm text-slate-500">sarah.m@nutracorp.test</p>
                 </div>
               </div>
             </Drawer>
-
             <Drawer side="left" open={drawerL} onClose={() => setDrawerL(false)} title="Navigation" size="sm">
               <nav className="flex flex-col gap-1">
                 {[
                   { icon: LayoutDashboard, label: "Dashboard" },
                   { icon: Users,           label: "Users"     },
                   { icon: Shield,          label: "Policies"  },
-                  { icon: Globe,           label: "Apps"      },
-                  { icon: Activity,        label: "Audit Log" },
                 ].map(({ icon: Icon, label }) => (
                   <button key={label} type="button"
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
                     <Icon className="h-4 w-4 text-slate-400" />{label}
                   </button>
                 ))}
@@ -622,15 +539,6 @@ export default function PreviewPage() {
                   ]}
                   onSelect={key => console.log("selected:", key)}
                 />
-                <DropdownMenu
-                  align="left"
-                  trigger={<Button icon={ChevronDown} iconPosition="right">With checkmarks</Button>}
-                  items={[
-                    { key: "active",    label: "Active",    checked: true  },
-                    { key: "pending",   label: "Pending",   checked: false },
-                    { key: "suspended", label: "Suspended", checked: false },
-                  ]}
-                />
               </Row>
               <Row label="KebabMenu (⋮ per-row)">
                 <div className="flex items-center gap-4">
@@ -655,7 +563,7 @@ export default function PreviewPage() {
           </Section>
 
           <div className="border-t border-slate-200 pt-6 text-center text-xs text-slate-400">
-            NutraTenant UI · 18 components · B1 + B2 + B3 complete · Confirm → page migration
+            NutraTenant UI · 18 components · B1 + B2 + B3 complete
           </div>
         </div>
       </div>

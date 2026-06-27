@@ -1,4 +1,7 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { type ReactNode } from "react";
+import { motion } from "framer-motion";
 
 /* ── Variant maps ──────────────────────────────────────────────────────── */
 const VARIANT_STYLES = {
@@ -23,10 +26,11 @@ export type BadgeSize    = keyof typeof SIZE_STYLES;
 
 /* ── Badge ─────────────────────────────────────────────────────────────── */
 export interface BadgeProps {
-  variant?:  BadgeVariant;
-  size?:     BadgeSize;
-  dot?:      boolean;
-  children:  ReactNode;
+  variant?:   BadgeVariant;
+  size?:      BadgeSize;
+  dot?:       boolean;
+  animate?:   boolean;
+  children:   ReactNode;
   className?: string;
 }
 
@@ -34,24 +38,38 @@ export function Badge({
   variant = "default",
   size = "sm",
   dot = false,
+  animate = false,
   children,
   className = "",
 }: BadgeProps) {
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-1 rounded-full border font-semibold",
-        VARIANT_STYLES[variant],
-        SIZE_STYLES[size],
-        className,
-      ].join(" ")}
-    >
-      {dot && (
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />
-      )}
+  const classes = [
+    "inline-flex items-center gap-1 rounded-full border font-semibold",
+    VARIANT_STYLES[variant],
+    SIZE_STYLES[size],
+    className,
+  ].join(" ");
+
+  const inner = (
+    <>
+      {dot && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />}
       {children}
-    </span>
+    </>
   );
+
+  if (animate) {
+    return (
+      <motion.span
+        initial={{ opacity: 0, scale: 0.7 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 600, damping: 22 }}
+        className={classes}
+      >
+        {inner}
+      </motion.span>
+    );
+  }
+
+  return <span className={classes}>{inner}</span>;
 }
 
 /* ── StatusBadge ───────────────────────────────────────────────────────── */
@@ -85,15 +103,16 @@ const STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
 };
 
 export interface StatusBadgeProps {
-  status: string;
-  size?:  BadgeSize;
-  dot?:   boolean;
+  status:   string;
+  size?:    BadgeSize;
+  dot?:     boolean;
+  animate?: boolean;
 }
 
-export function StatusBadge({ status, size = "sm", dot = false }: StatusBadgeProps) {
+export function StatusBadge({ status, size = "sm", dot = false, animate = false }: StatusBadgeProps) {
   const cfg = STATUS_MAP[status.toLowerCase()] ?? { label: status, variant: "muted" as BadgeVariant };
   return (
-    <Badge variant={cfg.variant} size={size} dot={dot}>
+    <Badge variant={cfg.variant} size={size} dot={dot} animate={animate}>
       {cfg.label}
     </Badge>
   );
@@ -112,14 +131,15 @@ const ROLE_MAP: Record<string, BadgeVariant> = {
 };
 
 export interface RoleBadgeProps {
-  role: string;
-  size?: BadgeSize;
+  role:     string;
+  size?:    BadgeSize;
+  animate?: boolean;
 }
 
-export function RoleBadge({ role, size = "sm" }: RoleBadgeProps) {
+export function RoleBadge({ role, size = "sm", animate = false }: RoleBadgeProps) {
   const variant = ROLE_MAP[role.toLowerCase()] ?? "muted";
   return (
-    <Badge variant={variant} size={size}>
+    <Badge variant={variant} size={size} animate={animate}>
       {role}
     </Badge>
   );
@@ -134,14 +154,15 @@ const PLAN_MAP: Record<string, BadgeVariant> = {
 };
 
 export interface PlanBadgeProps {
-  plan: string;
-  size?: BadgeSize;
+  plan:     string;
+  size?:    BadgeSize;
+  animate?: boolean;
 }
 
-export function PlanBadge({ plan, size = "sm" }: PlanBadgeProps) {
+export function PlanBadge({ plan, size = "sm", animate = false }: PlanBadgeProps) {
   const variant = PLAN_MAP[plan.toLowerCase()] ?? "muted";
   return (
-    <Badge variant={variant} size={size}>
+    <Badge variant={variant} size={size} animate={animate}>
       {plan}
     </Badge>
   );

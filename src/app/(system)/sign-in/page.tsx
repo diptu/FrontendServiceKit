@@ -115,13 +115,11 @@ interface SignInFormState {
   rememberMe: boolean;
 }
 
-/** Remembers the last workspace someone signed into on this browser, so the Tenant ID field can pre-fill itself next time. */
 const TENANT_ID_STORAGE_KEY = "nutratenant_last_tenant_id";
 
 interface LoginResponsePayload {
   access_token: string;
   refresh_token: string;
-  /** Drives the post-login redirect: platform console vs. the tenant's own dashboard. */
   is_superadmin?: boolean;
 }
 
@@ -154,14 +152,8 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
       setForm((current) => ({ ...current, tenantId: storedTenantId }));
     }
 
-    // Already-authenticated short-circuit: jump straight to the right
-    // dashboard instead of making someone who's already logged in sit
-    // through this form again. Platform-admin and tenant sessions are two
-    // independent cookies (core/platformAdmin/types.ts vs
-    // core/auth/authService.ts) -- check both.
     const platformClaims = getPlatformAdminSessionFromCookie();
     if (platformClaims) {
-      // Same-origin (/admin/dashboard is on this same root domain) -- client-side nav.
       router.push("/admin/dashboard");
       return;
     }
@@ -170,8 +162,6 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
     if (existingAccessToken) {
       const claims = decodeJwtClaims(existingAccessToken);
       if (claims && !isClaimsExpired(claims)) {
-        // Cross-origin (another subdomain) -- router.push can't navigate
-        // across hostnames, a full browser navigation is the only option.
         window.location.href = buildTenantOrigin(
           claims.tenant_org,
           window.location.hostname,
@@ -192,10 +182,6 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
     }
 
     const typedTenantId = form.tenantId.trim().toLowerCase();
-    // A typed/remembered Tenant ID wins over the email-lookup mock -- it's
-    // an explicit, known-good workspace, so there's no reason to guess.
-    // mockResolveTenantByEmail (core/tenant/mockResolveTenantByEmail.ts)
-    // stands in for a real backend lookup when the field is left blank.
     const resolvedTenantId = typedTenantId.length > 0 ? typedTenantId : mockResolveTenantByEmail(form.email);
 
     setIsSubmitting(true);
@@ -212,15 +198,12 @@ function SignInForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         if (platformClaims) {
           setPlatformAdminSessionCookie(response.data.access_token, platformClaims);
         }
-        // Same-origin -- client-side nav.
         router.push("/admin/dashboard");
         return;
       }
 
       const claims = await login(response.data.access_token, response.data.refresh_token);
       localStorage.setItem(TENANT_ID_STORAGE_KEY, claims.tenant_org);
-      // Cross-origin (the tenant's own subdomain) -- router.push can't
-      // navigate across hostnames, a full browser navigation is required.
       window.location.href = buildTenantOrigin(
         claims.tenant_org,
         window.location.hostname,

@@ -5,7 +5,7 @@ import { SearchX } from "lucide-react";
 import { ROOT_DOMAIN } from "@/core/tenant/hostname";
 
 /**
- * Shown when src/middleware.ts resolves a Host header to a subdomain or
+ * Shown when src/proxy.ts resolves a Host header to a subdomain or
  * custom domain that doesn't match any tenant in the registry. Distinct
  * from the bare-root-domain case, which renders the global landing page
  * (src/app/page.tsx) instead -- this page only ever appears for a

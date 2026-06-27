@@ -9,6 +9,7 @@ import {
   BarChart3,
   Bell,
   BookOpen,
+  Calculator,
   Calendar,
   ChevronDown,
   ChevronLeft,
@@ -27,7 +28,6 @@ import {
   Settings,
   ShoppingCart,
   Star,
-  Truck,
   UtensilsCrossed,
   Users,
   X,
@@ -39,6 +39,10 @@ import {
   usePreviewUser,
 } from "@/components/org/PreviewUserContext";
 import PreviewBanner from "@/components/platform-admin/ui/PreviewBanner";
+import {
+  NotificationsProvider,
+  useNotifications,
+} from "@/components/meal-service/NotificationsContext";
 
 /* ── Nav types ──────────────────────────────────────────────────────────── */
 
@@ -59,23 +63,24 @@ function buildFullNav(base: string): NavSection[] {
     {
       label: "Main Menu",
       items: [
-        { label: "Analytics",         icon: BarChart3,       href: `${base}/analytics`     },
-        { label: "Customers",         icon: Users,           href: `${base}/customers`     },
-        { label: "Delivery Tracking", icon: Truck,           href: `${base}/tracking`      },
-        { label: "Ingredients",       icon: Package,         href: `${base}/ingredients`   },
-        { label: "Meal Plans",        icon: ClipboardList,   href: `${base}/plans`         },
-        { label: "Members",           icon: Users,           href: `${base}/members`       },
-        { label: "Menus",             icon: ListOrdered,     href: `${base}/menus`         },
-        { label: "My Claims",         icon: History,         href: `${base}/claims`        },
-        { label: "Nutrition",         icon: Activity,        href: `${base}/nutrition`     },
-        { label: "Order History",     icon: ListOrdered,     href: `${base}/order-history` },
-        { label: "Orders",            icon: ShoppingCart,    href: `${base}/orders`        },
-        { label: "Overview",          icon: LayoutDashboard, href: `${base}`               },
-        { label: "Recipes",           icon: BookOpen,        href: `${base}/recepe`        },
-        { label: "Reports",           icon: FileBarChart,    href: `${base}/reports`       },
-        { label: "Reviews",           icon: Star,            href: `${base}/reviews`       },
-        { label: "Today's Meals",     icon: UtensilsCrossed, href: `${base}/today`         },
-        { label: "Weekly Planner",    icon: Calendar,        href: `${base}/planner`       },
+        { label: "Analytics",         icon: BarChart3,       href: `${base}/analytics`        },
+        { label: "Cost Generation",   icon: Calculator,      href: `${base}/cost-generation`  },
+        { label: "Customers",         icon: Users,           href: `${base}/customers`        },
+        { label: "Ingredients",       icon: Package,         href: `${base}/ingredients`      },
+        { label: "Meal Plans",        icon: ClipboardList,   href: `${base}/plans`            },
+        { label: "Members",           icon: Users,           href: `${base}/members`          },
+        { label: "Menus",             icon: ListOrdered,     href: `${base}/menus`            },
+        { label: "My Claims",         icon: History,         href: `${base}/claims`           },
+        { label: "Notifications",     icon: Bell,            href: `${base}/notifications`    },
+        { label: "Nutrition",         icon: Activity,        href: `${base}/nutrition`        },
+        { label: "Order History",     icon: ListOrdered,     href: `${base}/order-history`    },
+        { label: "Orders",            icon: ShoppingCart,    href: `${base}/orders`           },
+        { label: "Overview",          icon: LayoutDashboard, href: `${base}`                  },
+        { label: "Recipes",           icon: BookOpen,        href: `${base}/recepe`           },
+        { label: "Reports",           icon: FileBarChart,    href: `${base}/reports`          },
+        { label: "Reviews",           icon: Star,            href: `${base}/reviews`          },
+        { label: "Today's Meals",     icon: UtensilsCrossed, href: `${base}/today`            },
+        { label: "Weekly Planner",    icon: Calendar,        href: `${base}/planner`          },
       ],
     },
     {
@@ -93,6 +98,26 @@ function buildFullNav(base: string): NavSection[] {
       ],
     },
   ];
+}
+
+/* ── Notification bell ──────────────────────────────────────────────────── */
+
+function NotificationBell({ orgSlug }: { orgSlug: string }) {
+  const { unreadCount } = useNotifications();
+  return (
+    <Link
+      href={`/org/${orgSlug}/meal-service/notifications`}
+      aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+      className="relative text-slate-400 hover:text-slate-600 transition-colors"
+    >
+      <Bell className="h-[18px] w-[18px]" />
+      {unreadCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white leading-none">
+          {unreadCount > 9 ? "9+" : unreadCount}
+        </span>
+      )}
+    </Link>
+  );
 }
 
 /* ── Nav link ───────────────────────────────────────────────────────────── */
@@ -340,10 +365,7 @@ function MealServiceShellInner({ children }: { children: ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-3">
-            <button type="button" className="relative text-slate-400 hover:text-slate-600">
-              <Bell className="h-[18px] w-[18px]" />
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" />
-            </button>
+            <NotificationBell orgSlug={orgSlug} />
             <UserSwitcher />
           </div>
         </header>
@@ -365,8 +387,10 @@ function MealServiceShellInner({ children }: { children: ReactNode }) {
 
 export default function MealServiceShell({ children }: { children: ReactNode }) {
   return (
-    <PreviewUserProvider>
-      <MealServiceShellInner>{children}</MealServiceShellInner>
-    </PreviewUserProvider>
+    <NotificationsProvider>
+      <PreviewUserProvider>
+        <MealServiceShellInner>{children}</MealServiceShellInner>
+      </PreviewUserProvider>
+    </NotificationsProvider>
   );
 }
