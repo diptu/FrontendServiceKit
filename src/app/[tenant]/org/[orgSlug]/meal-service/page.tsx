@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
   ChevronLeft, ChevronRight, ChevronDown,
   Download, Filter, Plus, Check, X,
   BookOpen, Copy, Settings, CalendarDays, Users,
-  Search, Bell, ClipboardCheck,
+  Search, Bell, ClipboardCheck, Upload, FileText,
+  ClipboardPaste, FileDown,
 } from "lucide-react";
 import { usePreviewUser } from "@/components/org/PreviewUserContext";
 
@@ -62,10 +64,17 @@ const MONTHS        = ["January","February","March","April","May","June","July",
 // June 2025 starts on Sunday → (date - 1) % 7 gives day index
 const getDayName = (d: number) => FULL_DAY_NAMES[(d - 1) % 7];
 
-/* Week navigation helpers (reference: today = June 27, Friday, DOW index 5) */
+/* Real current date — used for default month and today ring */
+const _NOW        = new Date();
+const REAL_DATE   = _NOW.getDate();
+const REAL_MONTH  = _NOW.getMonth();   // 0-indexed
+const REAL_YEAR   = _NOW.getFullYear();
+const REAL_DOW    = _NOW.getDay();     // 0 = Sun
+
+/* Week navigation helpers (meal data lives in June 2025; week offset is relative to that) */
 const TODAY_DATE      = 27;
-const TODAY_DOW       = (TODAY_DATE - 1) % 7; // 5 = Friday (0=Sun)
-const THIS_WEEK_START = TODAY_DATE - TODAY_DOW; // 22 = Sun Jun 22
+const TODAY_DOW       = (TODAY_DATE - 1) % 7; // June 2025 starts on Sunday
+const THIS_WEEK_START = TODAY_DATE - TODAY_DOW; // 22 = Sun Jun 22 2025
 
 function weekStartForOffset(offset: number) { return THIS_WEEK_START + offset * 7; }
 
@@ -155,23 +164,384 @@ const UPCOMING = [
   { title:"Pasta Friday",        date:"Jun 26", type:"dinner"    as MealType },
 ];
 
+/* ── Export / import helpers ─────────────────────────────────────────────── */
+
+interface ExportDay {
+  date:      number;
+  monthIdx:  number;
+  year:      number;
+  dayName:   string;   // "Monday"
+  monthAbbr: string;   // "Jun"
+  meals:     MealEntry[];
+}
+
+interface ExportConfig {
+  periodLabel: string;   // "June 2025" | "Jun 22–28, 2025" | "Fri, Jun 27, 2025"
+  viewLabel:   string;   // "Monthly Schedule" | "Weekly Schedule" | "Daily Schedule"
+  days:        ExportDay[];
+  filename:    string;   // base name without extension
+}
+
+function buildExportConfig(
+  viewMode:    "month" | "week",
+  selectedDay: number | null,
+  monthIdx:    number,
+  year:        number,
+  weekStart:   number,
+): ExportConfig {
+  function makeDay(date: number, mi: number, yr: number): ExportDay {
+    return {
+      date, monthIdx: mi, year: yr,
+      dayName:   new Date(yr, mi, date).toLocaleDateString("en-US", { weekday: "long" }),
+      monthAbbr: MONTHS[mi].slice(0, 3),
+      meals: (mi === 5 && yr === 2025)
+        ? [...(DAY_MEALS[date] ?? [])].sort((a, b) => SLOT_RANGE[a.type].startH - SLOT_RANGE[b.type].startH)
+        : [],
+    };
+  }
+
+  // Day view
+  if (selectedDay !== null) {
+    const d = makeDay(selectedDay, monthIdx, year);
+    return {
+      periodLabel: `${d.dayName.slice(0, 3)}, ${d.monthAbbr} ${selectedDay}, ${year}`,
+      viewLabel:   "Daily Schedule",
+      days:        [d],
+      filename:    `meal-schedule-${MONTHS[monthIdx].toLowerCase()}-${selectedDay}-${year}`,
+    };
+  }
+
+  // Week view (week data is anchored to June 2025 demo data)
+  if (viewMode === "week") {
+    const days: ExportDay[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = weekStart + i;
+      if      (d < 1)  days.push(makeDay(31 + d, 4, 2025));  // May 2025
+      else if (d > 30) days.push(makeDay(d - 30, 6, 2025));  // July 2025
+      else             days.push(makeDay(d, 5, 2025));         // June 2025
+    }
+    return {
+      periodLabel: weekRangeLabel(weekStart),
+      viewLabel:   "Weekly Schedule",
+      days,
+      filename:    `meal-schedule-week-jun${Math.max(1, weekStart)}-2025`,
+    };
+  }
+
+  // Month view
+  const isJune2025 = monthIdx === 5 && year === 2025;
+  return {
+    periodLabel: `${MONTHS[monthIdx]} ${year}`,
+    viewLabel:   "Monthly Schedule",
+    days: isJune2025
+      ? Object.keys(DAY_MEALS).map(Number).sort((a, b) => a - b).map(d => makeDay(d, 5, 2025))
+      : [],
+    filename: `meal-schedule-${MONTHS[monthIdx].toLowerCase()}-${year}`,
+  };
+}
+
+function exportToPDF(
+  bookedSlots: Set<string>,
+  userName:    string,
+  viewMode:    "month" | "week",
+  selectedDay: number | null,
+  monthIdx:    number,
+  year:        number,
+  weekStart:   number,
+) {
+  const cfg       = buildExportConfig(viewMode, selectedDay, monthIdx, year, weekStart);
+  const generated = new Date().toLocaleDateString("en-US", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
+  const monthLabel  = cfg.periodLabel; // kept for template reuse below
+
+  const TC: Record<MealType, { bg: string; text: string }> = {
+    breakfast: { bg:"#ecfdf5", text:"#065f46" },
+    lunch:     { bg:"#fff7ed", text:"#9a3412" },
+    dinner:    { bg:"#f5f3ff", text:"#4c1d95" },
+    snack:     { bg:"#f0f9ff", text:"#0c4a6e" },
+  };
+
+  const totalMeals  = cfg.days.reduce((s, d) => s + d.meals.length, 0);
+  const bookedCount = cfg.days.reduce((s, d) =>
+    s + d.meals.filter(m => bookedSlots.has(`${d.date}:${m.type}`)).length, 0);
+
+  let coverStats = "", typeGrid = "", dayBlocks = "";
+
+  if (cfg.days.length === 0) {
+    dayBlocks = `<div class="empty">
+      <div class="empty-icon">📅</div>
+      <p class="empty-title">No meal data for ${cfg.periodLabel}</p>
+      <p class="empty-sub">Meal schedule data is available for June 2025.</p>
+    </div>`;
+  } else {
+    coverStats = `
+      <div class="stat"><div class="n">${totalMeals}</div><div class="l">Meals</div></div>
+      <div class="stat"><div class="n">${bookedCount}</div><div class="l">Booked</div></div>
+      <div class="stat"><div class="n">${totalMeals - bookedCount}</div><div class="l">Available</div></div>`;
+
+    // type breakdown — skip on single-day view (too few rows to be meaningful)
+    if (cfg.viewLabel !== "Daily Schedule") {
+      const tc: Partial<Record<MealType, { total: number; booked: number }>> = {};
+      cfg.days.forEach(day => day.meals.forEach(m => {
+        if (!tc[m.type]) tc[m.type] = { total:0, booked:0 };
+        tc[m.type]!.total++;
+        if (bookedSlots.has(`${day.date}:${m.type}`)) tc[m.type]!.booked++;
+      }));
+      typeGrid = (Object.keys(TYPE_CONFIG) as MealType[]).map(type => {
+        const { label }             = TYPE_CONFIG[type];
+        const { bg, text }          = TC[type];
+        const { total=0, booked=0 } = tc[type] ?? {};
+        return `<div class="type-card" style="background:${bg}">
+          <div class="type-name" style="color:${text}">${label}</div>
+          <div class="type-big" style="color:${text}">${booked}<span class="type-of">/${total}</span></div>
+          <div class="type-sub" style="color:${text}">booked</div>
+        </div>`;
+      }).join("");
+    }
+
+    dayBlocks = cfg.days.map(day => {
+      if (day.meals.length === 0) {
+        return `<div class="day-block">
+          <div class="day-header">
+            <span>${day.dayName}, ${day.monthAbbr} ${day.date}</span>
+            <span class="day-count" style="background:#fee2e2;color:#991b1b">No data</span>
+          </div>
+          <div style="padding:12px 16px;font-size:13px;color:#94a3b8">No meals scheduled for this day.</div>
+        </div>`;
+      }
+      const dayBooked = day.meals.filter(m => bookedSlots.has(`${day.date}:${m.type}`)).length;
+      const rows = day.meals.map(meal => {
+        const booked = bookedSlots.has(`${day.date}:${meal.type}`);
+        const { bg, text } = TC[meal.type];
+        return `<div class="meal-row${booked ? " booked" : ""}">
+          <span class="type-badge" style="background:${bg};color:${text}">${TYPE_CONFIG[meal.type].label}</span>
+          <span class="meal-name">${meal.name}</span>
+          <span class="meal-time">${SLOT_RANGE[meal.type].display}</span>
+          ${booked ? `<span class="pill booked-pill">✓ Booked</span>` : `<span class="pill avail-pill">Available</span>`}
+        </div>`;
+      }).join("");
+      return `<div class="day-block">
+        <div class="day-header">
+          <span>${day.dayName}, ${day.monthAbbr} ${day.date}</span>
+          <span class="day-count">${dayBooked}/${day.meals.length} booked</span>
+        </div>${rows}</div>`;
+    }).join("");
+  }
+
+  // ── HTML template ─────────────────────────────────────────────────────────
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<title>${cfg.viewLabel} – ${cfg.periodLabel}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1e293b;background:#f8fafc}
+.cover{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);color:#fff;padding:40px 48px}
+.cover h1{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
+.sub{font-size:14px;opacity:.75;margin-bottom:28px}
+.stats{display:flex;gap:14px;flex-wrap:wrap}
+.stat{background:rgba(255,255,255,.15);border-radius:12px;padding:12px 20px;text-align:center;min-width:80px}
+.stat .n{font-size:24px;font-weight:800}.stat .l{font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.content{padding:32px 48px}
+.section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#64748b;padding-bottom:10px;border-bottom:2px solid #e2e8f0;margin:28px 0 16px}
+.section-title:first-child{margin-top:0}
+.type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:8px}
+.type-card{border-radius:12px;padding:14px 18px}
+.type-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.type-big{font-size:28px;font-weight:800;line-height:1}
+.type-of{font-size:16px;font-weight:500;opacity:.55}
+.type-sub{font-size:11px;margin-top:4px;opacity:.65}
+.day-block{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:12px;page-break-inside:avoid}
+.day-header{background:#f8fafc;padding:9px 16px;font-weight:600;font-size:13px;color:#475569;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+.day-count{font-size:11px;background:#e2e8f0;padding:2px 10px;border-radius:999px;color:#64748b;font-weight:600}
+.meal-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #f1f5f9}
+.meal-row:last-child{border-bottom:none}
+.meal-row.booked{background:#f0fdf4}
+.type-badge{padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;min-width:72px;text-align:center;white-space:nowrap}
+.meal-name{flex:1;font-size:13px;font-weight:500}
+.meal-time{font-size:11px;color:#94a3b8;white-space:nowrap;margin-right:4px}
+.pill{font-size:10px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.booked-pill{background:#dcfce7;color:#166534}
+.avail-pill{background:#f1f5f9;color:#94a3b8}
+.empty{padding:64px 48px;text-align:center}
+.empty-icon{font-size:48px;margin-bottom:16px}
+.empty-title{font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px}
+.empty-sub{font-size:14px;color:#64748b;line-height:1.6}
+.footer{margin-top:24px;padding:16px 48px;background:#f1f5f9;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8}
+@media print{
+  body{background:#fff}
+  .cover,.type-card,.type-badge,.booked-pill,.avail-pill,.meal-row.booked{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+<script>window.onload=function(){setTimeout(function(){window.print()},400)}</script>
+</head><body>
+<div class="cover">
+  <h1>${cfg.viewLabel}</h1>
+  <div class="sub">${userName} &middot; ${cfg.periodLabel}</div>
+  ${cfg.days.length > 0 ? `<div class="stats">${coverStats}</div>` : ""}
+</div>
+<div class="content">
+  ${typeGrid ? `<div class="section-title">Meal Type Summary</div><div class="type-grid">${typeGrid}</div><div class="section-title">Schedule — All Meals &amp; Booking Status</div>` : cfg.days.length > 0 ? `<div class="section-title">Schedule</div>` : ""}
+  ${dayBlocks}
+</div>
+<div class="footer">
+  <span>NutraTenant &middot; Meal Service</span>
+  <span>Generated ${generated}</span>
+</div>
+</body></html>`;
+
+  // Blob URL → <a target="_blank"> avoids popup blockers in all modern browsers
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement("a"), { href: url, target: "_blank", rel: "noopener" });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Keep URL alive long enough for print dialog, then release
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function exportScheduleCSV(
+  bookedSlots: Set<string>,
+  userName:    string,
+  viewMode:    "month" | "week",
+  selectedDay: number | null,
+  monthIdx:    number,
+  year:        number,
+  weekStart:   number,
+) {
+  const cfg   = buildExportConfig(viewMode, selectedDay, monthIdx, year, weekStart);
+  // Same columns as the template so the file can be re-imported
+  const lines = ["Date,Day,Meal Type,Meal Name,Time,Status"];
+  cfg.days.forEach(day => {
+    day.meals.forEach(meal => {
+      const status = bookedSlots.has(`${day.date}:${meal.type}`) ? "Booked" : "Available";
+      lines.push(`${day.date},${day.dayName},${TYPE_CONFIG[meal.type].label},${meal.name},${SLOT_RANGE[meal.type].display},${status}`);
+    });
+  });
+  // BOM makes Excel open UTF-8 CSVs correctly
+  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement("a"), {
+    href:     url,
+    download: `${cfg.filename}.csv`,
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+function downloadCSVTemplate() {
+  // Identical header + column order to exportScheduleCSV so the same file can be
+  // exported, edited, and re-imported without any format conversion.
+  const HEADER = "Date,Day,Meal Type,Meal Name,Time,Status";
+
+  const SAMPLE_SLOTS: Array<[number, MealType]> = [
+    [22, "breakfast"], [22, "lunch"],  [22, "dinner"],
+    [23, "lunch"],     [23, "snack"],
+    [27, "breakfast"], [27, "lunch"],  [27, "dinner"],
+  ];
+
+  const rows = SAMPLE_SLOTS.map(([date, type]) => {
+    const meal = DAY_MEALS[date]?.find(m => m.type === type);
+    return `${date},${getDayName(date)},${TYPE_CONFIG[type].label},${meal?.name ?? ""},${SLOT_RANGE[type].display},Available`;
+  });
+
+  const blob = new Blob([[HEADER, ...rows].join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement("a"), {
+    href: url, download: "meal-schedule-template.csv",
+  });
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function parseImportCSV(text: string): string[] {
+  const keys: string[] = [];
+  for (const line of text.split("\n")) {
+    if (!line.trim() || /^(date|booked)/i.test(line)) continue;
+    const parts    = line.split(",").map(s => s.trim());
+    const dateStr  = parts[0].replace(/\D/g, "");
+    const date     = parseInt(dateStr);
+    if (isNaN(date) || date < 1 || date > 30) continue;
+    const typeCol  = parts.length >= 4 ? parts[2] : parts[1]; // our CSV: date,day,type,name,time
+    const type     = (Object.keys(TYPE_CONFIG) as MealType[]).find(
+      t => TYPE_CONFIG[t].label.toLowerCase() === typeCol.toLowerCase() || t === typeCol.toLowerCase()
+    );
+    if (type) keys.push(`${date}:${type}`);
+  }
+  return [...new Set(keys)];
+}
+
+function parsePastedSchedule(text: string): string[] {
+  const keys: string[] = [];
+  let currentDate = 0;
+  for (const line of text.split("\n")) {
+    const dateMatch = line.match(/june\s+(\d+)/i);
+    if (dateMatch) { currentDate = parseInt(dateMatch[1]); continue; }
+    if (currentDate < 1 || currentDate > 30) continue;
+    if (line.includes("•") || line.trim().startsWith("-")) {
+      for (const type of Object.keys(TYPE_CONFIG) as MealType[]) {
+        if (line.toLowerCase().includes(TYPE_CONFIG[type].label.toLowerCase())) {
+          const key = `${currentDate}:${type}`;
+          if (!keys.includes(key)) keys.push(key);
+          break;
+        }
+      }
+    }
+  }
+  return keys;
+}
+
+/* ── Animated number (count-up, no extra deps) ──────────────────────────── */
+
+function AnimatedNumber({ value }: { value: number }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    const start = performance.now();
+    const dur   = 900;
+    const raf   = requestAnimationFrame(function tick(now) {
+      const t = Math.min((now - start) / dur, 1);
+      setDisplay(Math.round((1 - Math.pow(1 - t, 3)) * value));
+      if (t < 1) requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{display}</>;
+}
+
+/* ── Animation variants ──────────────────────────────────────────────────── */
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 10 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.22 } },
+};
+const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } };
+
 /* ── Calendar builder ────────────────────────────────────────────────────── */
 
-function buildWeeks(): DayCell[][] {
+function buildWeeks(month: number, year: number): DayCell[][] {
+  const firstDOW      = new Date(year, month, 1).getDay();     // 0 = Sun
+  const daysInMonth   = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  const isJune2025    = month === 5 && year === 2025;
+
+  const cells: DayCell[] = [];
+
+  // Leading days from previous month (gray, not interactive)
+  for (let i = firstDOW - 1; i >= 0; i--)
+    cells.push({ date: prevMonthDays - i, meals: [], isCurrentMonth: false });
+
+  // Days of the selected month — meals only exist for June 2025
+  for (let d = 1; d <= daysInMonth; d++)
+    cells.push({ date: d, meals: isJune2025 ? (DAY_MEALS[d] ?? []) : [], isCurrentMonth: true });
+
+  // Trailing days to fill the last row
+  let nextDay = 1;
+  while (cells.length % 7 !== 0)
+    cells.push({ date: nextDay++, meals: [], isCurrentMonth: false });
+
   const weeks: DayCell[][] = [];
-  let week: DayCell[] = [];
-  for (let d = 1; d <= 30; d++) {
-    week.push({ date:d, meals:DAY_MEALS[d] ?? [], isCurrentMonth:true });
-    if (week.length === 7) { weeks.push(week); week = []; }
-  }
-  if (week.length > 0) {
-    let next = 1;
-    while (week.length < 7) week.push({ date:next++, meals:[], isCurrentMonth:false });
-    weeks.push(week);
-  }
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
 }
-const WEEKS = buildWeeks();
 
 /* ── Shared modal shell ──────────────────────────────────────────────────── */
 
@@ -226,13 +596,14 @@ function MealChip({ meal }: { meal: MealEntry }) {
 /* ── Month calendar grid ─────────────────────────────────────────────────── */
 
 interface CalendarGridProps {
-  today:       number;
+  today:       number;   // -1 when not viewing the real current month
   bookedSlots: Set<string>;
   onDayClick:  (date: number) => void;
   onQuickAdd:  (date: number) => void;
+  weeks:       DayCell[][];
 }
 
-function CalendarGrid({ today, bookedSlots, onDayClick, onQuickAdd }: CalendarGridProps) {
+function CalendarGrid({ today, bookedSlots, onDayClick, onQuickAdd, weeks }: CalendarGridProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
@@ -242,10 +613,11 @@ function CalendarGrid({ today, bookedSlots, onDayClick, onQuickAdd }: CalendarGr
       </div>
 
       <div className="divide-y divide-slate-100">
-        {WEEKS.map((week, wi) => (
+        {weeks.map((week, wi) => (
           <div key={wi} className="grid grid-cols-7 divide-x divide-slate-100">
             {week.map((cell, di) => {
-              const isToday   = cell.isCurrentMonth && cell.date === today;
+              // today === -1 when not viewing the real current month, so this never fires then
+              const isToday = cell.isCurrentMonth && cell.date === today;
               const hasMeals  = cell.isCurrentMonth && cell.meals.length > 0;
               const slotKeys  = cell.meals.map(m => `${cell.date}:${m.type}`);
               const booked    = slotKeys.filter(k => bookedSlots.has(k)).length;
@@ -449,9 +821,10 @@ interface DayViewProps {
   onToggle:    (key: string) => void;
   onBack:      () => void;
   userName:    string;
+  autoJoin:    Set<MealType>;
 }
 
-function DayView({ date, isToday, bookedSlots, onToggle, onBack, userName }: DayViewProps) {
+function DayView({ date, isToday, bookedSlots, onToggle, onBack, userName, autoJoin }: DayViewProps) {
   const meals       = DAY_MEALS[date] ?? [];
   const dayName     = getDayName(date);
   const bookedCount = meals.filter(m => bookedSlots.has(`${date}:${m.type}`)).length;
@@ -471,8 +844,10 @@ function DayView({ date, isToday, bookedSlots, onToggle, onBack, userName }: Day
     return () => clearInterval(id);
   }, [isToday]);
 
-  function selectAll() { meals.forEach(m => { const k = `${date}:${m.type}`; if (!bookedSlots.has(k)) onToggle(k); }); }
+  const eligible = autoJoin.size > 0 ? meals.filter(m => autoJoin.has(m.type)) : meals;
+  function selectAll() { eligible.forEach(m => { const k = `${date}:${m.type}`; if (!bookedSlots.has(k)) onToggle(k); }); }
   function clearAll()  { meals.forEach(m => { const k = `${date}:${m.type}`; if  (bookedSlots.has(k)) onToggle(k); }); }
+  const autoJoinLabels = [...autoJoin].map(t => TYPE_CONFIG[t].label).join(" & ");
 
   return (
     <div className="flex flex-col gap-4">
@@ -514,7 +889,17 @@ function DayView({ date, isToday, bookedSlots, onToggle, onBack, userName }: Day
               );
             })}
             <span className="text-slate-300">|</span>
-            <button type="button" onClick={selectAll} className="text-xs font-medium text-indigo-600 hover:text-indigo-700">All</button>
+            <button type="button" onClick={selectAll}
+              title={autoJoin.size > 0 ? `Add: ${autoJoinLabels}` : "Add all meal types"}
+              className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              {autoJoin.size > 0 ? (
+                <>
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                  Auto-join
+                </>
+              ) : "All"}
+            </button>
             <button type="button" onClick={clearAll}  className="text-xs font-medium text-slate-400 hover:text-slate-600">None</button>
           </div>
         )}
@@ -587,6 +972,309 @@ function DayView({ date, isToday, bookedSlots, onToggle, onBack, userName }: Day
         </p>
       )}
     </div>
+  );
+}
+
+/* ── Schedule Meal modal ─────────────────────────────────────────────────── */
+
+function ScheduleMealModal({
+  open, onClose, bookedSlots, onToggle,
+}: {
+  open: boolean; onClose: () => void;
+  bookedSlots: Set<string>; onToggle: (key: string) => void;
+}) {
+  const [selDate, setSelDate] = useState(27);
+  const [selType, setSelType] = useState<MealType>("lunch");
+  const [notes,   setNotes]   = useState("");
+
+  const slotKey   = `${selDate}:${selType}`;
+  const isBooked  = bookedSlots.has(slotKey);
+  const meal      = DAY_MEALS[selDate]?.find(m => m.type === selType);
+  const cfg       = TYPE_CONFIG[selType];
+  const attendees = meal ? getAttendees(selDate, selType).length : 0;
+
+  return (
+    <Modal open={open} onClose={onClose} title="Schedule a Meal">
+      <div className="flex flex-col gap-4">
+
+        {/* Date */}
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-slate-700">Date</label>
+          <select value={selDate} onChange={e => setSelDate(Number(e.target.value))}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {Array.from({ length: 30 }, (_, i) => i + 1).map(d => (
+              <option key={d} value={d}>
+                {getDayName(d)}, June {d}{(DAY_MEALS[d] ?? []).length === 0 ? " (no meals)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Meal type grid */}
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-slate-700">Meal Type</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(TYPE_CONFIG) as MealType[]).map(type => {
+              const c     = TYPE_CONFIG[type];
+              const avail = !!(DAY_MEALS[selDate]?.find(m => m.type === type));
+              const sel   = selType === type;
+              return (
+                <button key={type} type="button" onClick={() => setSelType(type)}
+                  className={`flex items-center gap-2 rounded-xl border p-3 text-left transition-all
+                    ${sel ? `${c.bg} ${c.border} ring-2 ring-inset ${c.ring}` : "border-slate-200 hover:bg-slate-50"}
+                    ${!avail ? "opacity-40" : ""}`}
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
+                  <div className="min-w-0">
+                    <p className={`text-xs font-semibold ${sel ? c.text : "text-slate-700"}`}>{c.label}</p>
+                    <p className="text-[10px] text-slate-400">{SLOT_RANGE[type].display}</p>
+                  </div>
+                  {!avail && <span className="ml-auto text-[9px] text-slate-400">None</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Meal preview */}
+        {meal ? (
+          <div className={`rounded-xl border p-4 ${cfg.bg} ${cfg.border}`}>
+            <p className={`mb-1 text-xs font-semibold ${cfg.text}`}>{cfg.label} · {SLOT_RANGE[selType].display}</p>
+            <p className="text-base font-bold text-slate-900">{meal.name}</p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              {getDayName(selDate)}, June {selDate} · {attendees} attending
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+            <p className="text-xs font-semibold text-amber-700">No meal scheduled</p>
+            <p className="mt-0.5 text-[11px] text-amber-600">
+              No {cfg.label.toLowerCase()} on {getDayName(selDate)}, June {selDate}.
+            </p>
+          </div>
+        )}
+
+        {/* Notes */}
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-slate-700">Notes (optional)</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+            placeholder="Allergies, special requests…"
+            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        {/* Action */}
+        <button type="button" disabled={!meal}
+          onClick={() => { if (meal) { onToggle(slotKey); onClose(); setNotes(""); } }}
+          className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-all
+            ${!meal ? "cursor-not-allowed bg-slate-100 text-slate-400"
+              : isBooked ? "bg-red-500 text-white hover:bg-red-600"
+              : "bg-indigo-600 text-white hover:bg-indigo-700"}`}
+        >
+          {!meal ? "No meal available on this date"
+            : isBooked ? `Remove me from ${cfg.label}`
+            : `Add me · ${cfg.label} on ${getDayName(selDate)}, Jun ${selDate}`}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Import CSV modal ────────────────────────────────────────────────────── */
+
+function ImportCSVModal({
+  open, onClose, onBulkAdd,
+}: {
+  open: boolean; onClose: () => void; onBulkAdd: (keys: string[]) => void;
+}) {
+  const [preview, setPreview] = useState<string[]>([]);
+  const [err,     setErr]     = useState("");
+  const fileRef               = useRef<HTMLInputElement>(null);
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const keys = parseImportCSV(ev.target?.result as string);
+      if (keys.length === 0) {
+        setErr("No valid slots found. Use the downloaded template — columns: Date, Day, Meal Type, Meal Name, Time, Status.");
+        setPreview([]);
+      } else { setErr(""); setPreview(keys); }
+    };
+    reader.readAsText(file);
+  }
+
+  function apply() { onBulkAdd(preview); onClose(); setPreview([]); setErr(""); }
+
+  return (
+    <Modal open={open} onClose={() => { onClose(); setPreview([]); setErr(""); }} title="Import Schedule from CSV">
+      <div className="flex flex-col gap-4">
+
+        {/* Template download + format preview */}
+        <div className="overflow-hidden rounded-xl border border-slate-200">
+          {/* Header row */}
+          <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-800">CSV format</p>
+              <p className="mt-0.5 text-[10px] text-slate-400">Same columns as the Export CSV file — edit and re-import</p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadCSVTemplate}
+              className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[11px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Download Template
+            </button>
+          </div>
+
+          {/* Column header row preview */}
+          <div className="grid grid-cols-6 divide-x divide-slate-100 border-b border-slate-100 bg-slate-50/60">
+            {["Date", "Day", "Meal Type", "Meal Name", "Time", "Status"].map(col => (
+              <div key={col} className="px-2 py-1.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                {col}
+              </div>
+            ))}
+          </div>
+
+          {/* Sample rows */}
+          {[
+            [22, "breakfast"] as const,
+            [22, "dinner"]    as const,
+            [23, "lunch"]     as const,
+            [27, "snack"]     as const,
+          ].map(([date, type]) => {
+            const meal = DAY_MEALS[date]?.find(m => m.type === type);
+            const cfg  = TYPE_CONFIG[type];
+            return (
+              <div key={`${date}-${type}`} className="grid grid-cols-6 divide-x divide-slate-50 border-b border-slate-50 last:border-b-0">
+                <div className="px-2 py-1.5 text-center font-mono text-[10px] text-slate-600">{date}</div>
+                <div className="px-2 py-1.5 text-center text-[10px] text-slate-500">{getDayName(date)}</div>
+                <div className="px-2 py-1.5 text-center">
+                  <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+                </div>
+                <div className="truncate px-2 py-1.5 text-[10px] text-slate-500">{meal?.name}</div>
+                <div className="px-2 py-1.5 text-center text-[9px] text-slate-400">{SLOT_RANGE[type].display}</div>
+                <div className="px-2 py-1.5 text-center text-[9px] text-slate-400">Available</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Drop zone */}
+        <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={handleFile} className="hidden" />
+        <button type="button" onClick={() => fileRef.current?.click()}
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-8 text-sm text-slate-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+        >
+          <Upload className="h-6 w-6" />
+          Click to upload CSV file
+        </button>
+
+        {err && <p className="text-xs text-red-500">{err}</p>}
+
+        {/* Preview */}
+        <AnimatePresence>
+          {preview.length > 0 && (
+            <motion.div key="preview" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}>
+              <p className="mb-2 text-xs font-semibold text-slate-700">{preview.length} slot{preview.length !== 1 ? "s" : ""} found:</p>
+              <div className="max-h-44 overflow-y-auto divide-y divide-slate-50 rounded-xl border border-slate-100">
+                {preview.map(key => {
+                  const [d, t]  = key.split(":");
+                  const date    = Number(d);
+                  const type    = t as MealType;
+                  const c       = TYPE_CONFIG[type];
+                  const meal    = DAY_MEALS[date]?.find(m => m.type === type);
+                  return (
+                    <div key={key} className="flex items-center gap-2.5 px-3 py-2">
+                      <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${c.bg} ${c.text}`}>{c.label}</span>
+                      <span className="text-xs text-slate-700">{getDayName(date)}, Jun {date}</span>
+                      <span className="truncate text-xs text-slate-400">— {meal?.name ?? <span className="text-amber-500">no meal</span>}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <button type="button" onClick={apply}
+                className="mt-3 w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+              >
+                Add {preview.length} slot{preview.length !== 1 ? "s" : ""} to my schedule
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Paste Schedule modal ────────────────────────────────────────────────── */
+
+function PasteScheduleModal({
+  open, onClose, onBulkAdd,
+}: {
+  open: boolean; onClose: () => void; onBulkAdd: (keys: string[]) => void;
+}) {
+  const [text,    setText]    = useState("");
+  const [preview, setPreview] = useState<string[]>([]);
+
+  function parse() { setPreview(parsePastedSchedule(text)); }
+  function apply() { onBulkAdd(preview); onClose(); setText(""); setPreview([]); }
+
+  return (
+    <Modal open={open} onClose={() => { onClose(); setText(""); setPreview([]); }} title="Paste Schedule">
+      <div className="flex flex-col gap-4">
+        <p className="text-xs text-slate-500">
+          Paste the schedule text you copied from this page — the parser reads "June DD" headers
+          and "• MealType:" bullet lines automatically.
+        </p>
+
+        <textarea value={text} onChange={e => { setText(e.target.value); setPreview([]); }} rows={6}
+          placeholder={`Paste copied schedule here…\n\nExample:\nSunday, June 22\n  • Breakfast: Blueberry Muffin\n  • Dinner: Grilled Salmon`}
+          className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+
+        <button type="button" onClick={parse} disabled={!text.trim()}
+          className="w-full rounded-xl border border-indigo-200 bg-indigo-50 py-2 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ClipboardPaste className="mr-1.5 inline h-3.5 w-3.5" />
+          Parse Schedule
+        </button>
+
+        <AnimatePresence>
+          {preview.length > 0 && (
+            <motion.div key="prev" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}>
+              <p className="mb-2 text-xs font-semibold text-slate-700">{preview.length} slot{preview.length !== 1 ? "s" : ""} detected:</p>
+              <div className="max-h-40 overflow-y-auto divide-y divide-slate-50 rounded-xl border border-slate-100">
+                {preview.map(key => {
+                  const [d, t] = key.split(":");
+                  const date   = Number(d);
+                  const type   = t as MealType;
+                  const c      = TYPE_CONFIG[type];
+                  const meal   = DAY_MEALS[date]?.find(m => m.type === type);
+                  return (
+                    <div key={key} className="flex items-center gap-2.5 px-3 py-2">
+                      <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${c.bg} ${c.text}`}>{c.label}</span>
+                      <span className="text-xs text-slate-700">{getDayName(date)}, Jun {date}</span>
+                      {meal && <span className="truncate text-xs text-slate-400">— {meal.name}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <button type="button" onClick={apply}
+                className="mt-3 w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+              >
+                Add {preview.length} slot{preview.length !== 1 ? "s" : ""} to my schedule
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {text.trim() && preview.length === 0 && (
+          <p className="text-center text-xs text-slate-400">Click "Parse Schedule" to detect meals</p>
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -710,19 +1398,23 @@ const DIETARY_OPTIONS = [
   "Gluten-free", "Halal", "Kosher", "Low-sodium",
 ] as const;
 
-function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function SettingsModal({
+  open, onClose, autoJoin, onAutoJoinChange,
+}: {
+  open: boolean; onClose: () => void;
+  autoJoin: Set<MealType>; onAutoJoinChange: (v: Set<MealType>) => void;
+}) {
   const [dietary,       setDietary]       = useState<Set<string>>(new Set());
   const [emailReminder, setEmailReminder] = useState(true);
   const [pushReminder,  setPushReminder]  = useState(false);
   const [reminderMins,  setReminderMins]  = useState("30");
-  const [autoJoin,      setAutoJoin]      = useState<Set<MealType>>(new Set());
   const [defaultView,   setDefaultView]   = useState<"month" | "week">("month");
 
   function toggleDietary(d: string) {
     setDietary(prev => { const n = new Set(prev); n.has(d) ? n.delete(d) : n.add(d); return n; });
   }
   function toggleAutoJoin(t: MealType) {
-    setAutoJoin(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
+    const n = new Set(autoJoin); n.has(t) ? n.delete(t) : n.add(t); onAutoJoinChange(n);
   }
 
   return (
@@ -794,7 +1486,8 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             Auto-join Meal Types
           </p>
           <p className="mb-2.5 text-[11px] text-slate-400">
-            Automatically add yourself to scheduled meals of these types
+            When active, "Add all" / quick-add on the calendar only adds the selected types.
+            Leave all off to add every available meal type.
           </p>
           <div className="flex flex-wrap gap-2">
             {(Object.keys(TYPE_CONFIG) as MealType[]).map(type => {
@@ -1042,16 +1735,21 @@ function WeekView({
 /* ── Right sidebar ───────────────────────────────────────────────────────── */
 
 interface RightPanelProps {
-  bookedSlots:  Set<string>;
-  onRemoveDay:  (date: number) => void;
-  onToggleSlot: (key: string) => void;
-  userName:     string;
+  bookedSlots:      Set<string>;
+  onRemoveDay:      (date: number) => void;
+  onToggleSlot:     (key: string) => void;
+  onBulkAdd:        (keys: string[]) => void;
+  userName:         string;
+  autoJoin:         Set<MealType>;
+  onAutoJoinChange: (v: Set<MealType>) => void;
 }
 
-function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, userName }: RightPanelProps) {
+function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, onBulkAdd, userName, autoJoin, onAutoJoinChange }: RightPanelProps) {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [browseOpen,   setBrowseOpen]   = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importOpen,   setImportOpen]   = useState(false);
+  const [pasteOpen,    setPasteOpen]    = useState(false);
   const [copied,       setCopied]       = useState(false);
 
   function copySchedule() {
@@ -1123,7 +1821,10 @@ function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, userName }: RightP
             const bookedKeys = allKeys.filter(k => bookedSlots.has(k));
             const allIn      = bookedKeys.length === allKeys.length;
 
-            function addAll()    { allKeys.forEach(k => { if (!bookedSlots.has(k)) onToggleSlot(k); }); }
+            const eligibleKeys = autoJoin.size > 0
+              ? allKeys.filter(k => autoJoin.has(k.split(":")[1] as MealType))
+              : allKeys;
+            function addAll()    { eligibleKeys.forEach(k => { if (!bookedSlots.has(k)) onToggleSlot(k); }); }
             function removeAll() { allKeys.forEach(k => { if  (bookedSlots.has(k)) onToggleSlot(k); }); }
 
             return (
@@ -1142,11 +1843,13 @@ function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, userName }: RightP
                   </div>
                   {/* Per-day bulk actions */}
                   <div className="flex shrink-0 items-center gap-1.5">
-                    {!allIn && (
+                    {eligibleKeys.some(k => !bookedSlots.has(k)) && (
                       <button type="button" onClick={addAll}
+                        title={autoJoin.size > 0 ? `Add: ${[...autoJoin].map(t => TYPE_CONFIG[t].label).join(" & ")}` : "Add all"}
                         className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
                       >
-                        <Plus className="h-3 w-3" /> All
+                        <Plus className="h-3 w-3" />
+                        {autoJoin.size > 0 ? "Auto-join" : "All"}
                       </button>
                     )}
                     {bookedKeys.length > 0 && (
@@ -1229,54 +1932,61 @@ function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, userName }: RightP
       </div>
 
       {/* My Schedule */}
-      {byDay.length > 0 && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-          <div className="mb-2.5 flex items-center justify-between">
-            <p className="text-sm font-semibold text-emerald-900">My Schedule</p>
-            <button
-              type="button"
-              title="View full schedule"
-              onClick={() => setScheduleOpen(true)}
-              className="flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-700 shadow-sm transition-colors hover:bg-emerald-50"
-            >
-              <CalendarDays className="h-3 w-3" /> View all
-            </button>
-          </div>
-          <div className="flex flex-col gap-2">
-            {byDay.map(([date, types]) => (
-              <div key={date} className="rounded-lg bg-white p-2.5 shadow-sm">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 flex-col items-center justify-center rounded-lg bg-emerald-100">
-                      <span className="text-[8px] font-bold uppercase text-emerald-600">Jun</span>
-                      <span className="text-xs font-bold text-emerald-800">{date}</span>
-                    </div>
-                    <span className="text-[11px] font-semibold text-slate-700">{getDayName(date)}</span>
-                  </div>
-                  <button type="button" title="Remove day" onClick={() => onRemoveDay(date)}
-                    className="text-slate-300 transition-colors hover:text-red-400"
+      <AnimatePresence>
+        {byDay.length > 0 && (
+          <motion.div
+            key="my-schedule"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm"
+          >
+            <div className="mb-2.5 flex items-center justify-between">
+              <p className="text-sm font-semibold text-emerald-900">My Schedule</p>
+              <button type="button" onClick={() => setScheduleOpen(true)}
+                className="flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[10px] font-semibold text-emerald-700 shadow-sm transition-colors hover:bg-emerald-50"
+              >
+                <CalendarDays className="h-3 w-3" /> View all
+              </button>
+            </div>
+            <motion.div className="flex flex-col gap-2" variants={stagger} initial="hidden" animate="show">
+              <AnimatePresence>
+                {byDay.map(([date, types]) => (
+                  <motion.div key={date} variants={fadeUp} exit={{ opacity:0, x:-10 }}
+                    className="rounded-lg bg-white p-2.5 shadow-sm"
                   >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {types.sort().map((t) => {
-                    const { label, bg, text } = TYPE_CONFIG[t];
-                    return (
-                      <span key={t} className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${bg} ${text}`}>
-                        {label}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 flex-col items-center justify-center rounded-lg bg-emerald-100">
+                          <span className="text-[8px] font-bold uppercase text-emerald-600">Jun</span>
+                          <span className="text-xs font-bold text-emerald-800">{date}</span>
+                        </div>
+                        <span className="text-[11px] font-semibold text-slate-700">{getDayName(date)}</span>
+                      </div>
+                      <button type="button" onClick={() => onRemoveDay(date)}
+                        className="text-slate-300 transition-colors hover:text-red-400"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {types.sort().map(t => {
+                        const { label, bg, text } = TYPE_CONFIG[t];
+                        return <span key={t} className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${bg} ${text}`}>{label}</span>;
+                      })}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Meal Type Distribution */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}
+        className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+      >
         <p className="mb-3 text-sm font-semibold text-slate-900">Meal Type Distribution</p>
         <div className="relative flex items-center justify-center">
           <div className="h-36 w-36">
@@ -1289,57 +1999,83 @@ function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, userName }: RightP
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <p className="text-2xl font-bold text-slate-900">{TOTAL_MEALS}</p>
+              <p className="text-2xl font-bold text-slate-900"><AnimatedNumber value={TOTAL_MEALS} /></p>
               <p className="text-[10px] text-slate-400">Total</p>
             </div>
           </div>
         </div>
-        <div className="mt-3 flex flex-col gap-1.5">
-          {DISTRIBUTION.map((d) => (
-            <div key={d.name} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background:d.color }} />
-                <span className="text-xs text-slate-500">{d.name}</span>
+        <motion.div className="mt-3 flex flex-col gap-2.5" variants={stagger} initial="hidden" animate="show">
+          {DISTRIBUTION.map(d => (
+            <motion.div key={d.name} variants={fadeUp} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color }} />
+                  <span className="text-xs text-slate-500">{d.name}</span>
+                </div>
+                <span className="text-xs font-semibold text-slate-900"><AnimatedNumber value={d.value} /></span>
               </div>
-              <span className="text-xs font-semibold text-slate-900">{d.value}</span>
-            </div>
+              {/* Animated progress bar */}
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(d.value / TOTAL_MEALS) * 100}%` }}
+                  transition={{ duration: 0.9, delay: 0.15, ease: "easeOut" }}
+                  style={{ background: d.color }}
+                  className="h-full rounded-full"
+                />
+              </div>
+            </motion.div>
           ))}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Upcoming Highlights */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.2 }}
+        className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+      >
         <p className="mb-3 text-sm font-semibold text-slate-900">Upcoming Highlights</p>
-        <div className="flex flex-col gap-2.5">
+        <motion.div className="flex flex-col gap-2.5" variants={stagger} initial="hidden" animate="show">
           {UPCOMING.map((u) => {
             const { label, bg, text } = TYPE_CONFIG[u.type];
             return (
-              <div key={u.title} className="flex items-center gap-2.5">
+              <motion.div key={u.title} variants={fadeUp} className="flex items-center gap-2.5">
                 <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${bg} ${text}`}>{label}</span>
                 <span className="min-w-0 flex-1 truncate text-xs text-slate-700">{u.title}</span>
                 <span className="shrink-0 text-[9px] text-slate-400">{u.date}</span>
-              </div>
+              </motion.div>
             );
           })}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Quick Actions */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="mb-2 text-sm font-semibold text-slate-900">Quick Actions</p>
-        <div className="flex flex-col gap-0.5">
+      <motion.div
+        initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.3, delay:0.25 }}
+        className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+      >
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-900">Quick Actions</p>
+          {autoJoin.size > 0 && (
+            <span className="flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+              Auto-join: {[...autoJoin].map(t => TYPE_CONFIG[t].label).join(", ")}
+            </span>
+          )}
+        </div>
+        <motion.div className="flex flex-col gap-0.5" variants={stagger} initial="hidden" animate="show">
 
           {/* Browse Meal Items */}
-          <button type="button" onClick={() => setBrowseOpen(true)}
+          <motion.button variants={fadeUp} type="button" onClick={() => setBrowseOpen(true)}
             className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
           >
             <BookOpen className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
             Browse Meal Items
             <span className="ml-auto text-[10px] text-slate-400">{Object.values(DAY_MEALS).flat().length} meals</span>
-          </button>
+          </motion.button>
 
           {/* Copy Schedule */}
-          <button type="button" onClick={copySchedule}
+          <motion.button variants={fadeUp} type="button" onClick={copySchedule}
             disabled={bookedSlots.size === 0}
             className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors
               ${copied
@@ -1355,18 +2091,37 @@ function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, userName }: RightP
             {!copied && bookedSlots.size > 0 && (
               <span className="ml-auto text-[10px] text-slate-400">{bookedSlots.size} slot{bookedSlots.size !== 1 ? "s" : ""}</span>
             )}
-          </button>
+          </motion.button>
+
+          {/* Import CSV */}
+          <motion.button variants={fadeUp} type="button" onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800"
+          >
+            <Upload className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            Import from CSV
+          </motion.button>
+
+          {/* Paste Schedule */}
+          <motion.button variants={fadeUp} type="button" onClick={() => setPasteOpen(true)}
+            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium transition-colors
+              ${copied ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"}`}
+          >
+            <ClipboardPaste className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            Paste Schedule
+            {copied && <span className="ml-auto text-[10px] text-emerald-500">paste what you copied</span>}
+          </motion.button>
 
           {/* Manage Settings */}
-          <button type="button" onClick={() => setSettingsOpen(true)}
+          <motion.button variants={fadeUp} type="button" onClick={() => setSettingsOpen(true)}
             className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800"
           >
             <Settings className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             Manage Settings
-          </button>
+            {autoJoin.size > 0 && <span className="ml-auto text-[10px] text-indigo-400">auto-join on</span>}
+          </motion.button>
 
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </aside>
 
     {/* ── Quick-action modals ──────────────────────────────────────────── */}
@@ -1379,6 +2134,18 @@ function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, userName }: RightP
     <SettingsModal
       open={settingsOpen}
       onClose={() => setSettingsOpen(false)}
+      autoJoin={autoJoin}
+      onAutoJoinChange={onAutoJoinChange}
+    />
+    <ImportCSVModal
+      open={importOpen}
+      onClose={() => setImportOpen(false)}
+      onBulkAdd={onBulkAdd}
+    />
+    <PasteScheduleModal
+      open={pasteOpen}
+      onClose={() => setPasteOpen(false)}
+      onBulkAdd={onBulkAdd}
     />
     </>
   );
@@ -1387,13 +2154,27 @@ function RightPanel({ bookedSlots, onRemoveDay, onToggleSlot, userName }: RightP
 /* ── Page ────────────────────────────────────────────────────────────────── */
 
 export default function MealCalendarPage() {
-  const { currentUser }             = usePreviewUser();
-  const [monthIdx, setMonthIdx]     = useState(5);
-  const [year,     setYear]         = useState(2025);
-  const [bookedSlots, setBooked]    = useState<Set<string>>(new Set());
-  const [selectedDay, setSelected]  = useState<number | null>(null);
-  const [viewMode, setViewMode]     = useState<"month" | "week">("month");
-  const [weekOffset, setWeekOffset] = useState(0);
+  const { currentUser }               = usePreviewUser();
+  const [monthIdx, setMonthIdx]       = useState(REAL_MONTH);
+  const [year,     setYear]           = useState(REAL_YEAR);
+  const [bookedSlots, setBooked]      = useState<Set<string>>(new Set());
+  const [selectedDay, setSelected]    = useState<number | null>(null);
+  const [viewMode, setViewMode]       = useState<"month" | "week">("month");
+  const [weekOffset, setWeekOffset]   = useState(0);
+  const [autoJoin,         setAutoJoin]          = useState<Set<MealType>>(new Set());
+  const [scheduleMealOpen, setScheduleMealOpen] = useState(false);
+  const [exportDropOpen,   setExportDropOpen]   = useState(false);
+  const exportRef                               = useRef<HTMLDivElement>(null);
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node))
+        setExportDropOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   function toggleSlot(key: string) {
     setBooked((prev) => {
@@ -1404,14 +2185,21 @@ export default function MealCalendarPage() {
   }
 
   function quickAddDay(date: number) {
-    const meals   = DAY_MEALS[date] ?? [];
-    const allKeys = meals.map(m => `${date}:${m.type}`);
+    const meals    = DAY_MEALS[date] ?? [];
+    // Respect auto-join filter: if types are selected, only add those
+    const eligible = autoJoin.size > 0 ? meals.filter(m => autoJoin.has(m.type)) : meals;
+    const allKeys  = eligible.map(m => `${date}:${m.type}`);
+    if (allKeys.length === 0) return;
     setBooked((prev) => {
-      const next     = new Set(prev);
-      const allIn    = allKeys.every(k => next.has(k));
+      const next  = new Set(prev);
+      const allIn = allKeys.every(k => next.has(k));
       allKeys.forEach(k => allIn ? next.delete(k) : next.add(k));
       return next;
     });
+  }
+
+  function addBulkSlots(keys: string[]) {
+    setBooked(prev => { const n = new Set(prev); keys.forEach(k => n.add(k)); return n; });
   }
 
   function removeAllForDay(date: number) {
@@ -1423,24 +2211,38 @@ export default function MealCalendarPage() {
   }
 
   function prev() {
+    setSelected(null);
     if (monthIdx === 0) { setMonthIdx(11); setYear(y => y - 1); }
     else setMonthIdx(m => m - 1);
   }
   function next() {
+    setSelected(null);
     if (monthIdx === 11) { setMonthIdx(0); setYear(y => y + 1); }
     else setMonthIdx(m => m + 1);
   }
   function goToday() {
     if (viewMode === "week") { setWeekOffset(0); return; }
-    setMonthIdx(5); setYear(2025); setSelected(27);
+    setSelected(null);
+    setMonthIdx(REAL_MONTH);
+    setYear(REAL_YEAR);
   }
 
-  const isJune2025  = monthIdx === 5 && year === 2025;
-  const today       = isJune2025 ? 27 : -1;
-  const weekStart   = weekStartForOffset(weekOffset);
-  const isToday     = (d: number) => d === 27;
+  const isJune2025       = monthIdx === 5 && year === 2025;
+  const isViewingToday   = monthIdx === REAL_MONTH && year === REAL_YEAR;
+  const today            = isViewingToday ? REAL_DATE : -1;
+  const weeks            = useMemo(() => buildWeeks(monthIdx, year), [monthIdx, year]);
+  const weekStart        = weekStartForOffset(weekOffset);
+  const isToday          = (d: number) => d === TODAY_DATE;
+
+  // Label shown in the Export dropdown to reflect the currently visible period
+  const exportPeriodLabel = useMemo(() => {
+    if (selectedDay !== null) return `${MONTHS[monthIdx].slice(0, 3)} ${selectedDay}`;
+    if (viewMode === "week") return weekRangeLabel(weekStart);
+    return `${MONTHS[monthIdx]} ${year}`;
+  }, [selectedDay, viewMode, monthIdx, year, weekStart]);
 
   return (
+    <>
     <div className="flex gap-5">
       {/* ── Main column ──────────────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -1455,12 +2257,49 @@ export default function MealCalendarPage() {
             <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 shadow-sm">
               Viewing as <strong className="ml-1 text-slate-800">{currentUser.name}</strong>
             </span>
+
+            {/* Export dropdown */}
+            <div ref={exportRef} className="relative">
+              <button type="button"
+                onClick={() => setExportDropOpen(v => !v)}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+              >
+                <Download className="h-4 w-4" /> Export <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+              <AnimatePresence>
+                {exportDropOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.97 }} transition={{ duration: 0.12 }}
+                    className="absolute right-0 top-full z-30 mt-1.5 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                  >
+                    <button type="button"
+                      onClick={() => { exportToPDF(bookedSlots, currentUser.name, viewMode, selectedDay, monthIdx, year, weekStart); setExportDropOpen(false); }}
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                    >
+                      <FileText className="h-4 w-4 text-indigo-400" />
+                      <div className="flex flex-1 flex-col">
+                        <span className="font-medium">Export as PDF</span>
+                        <span className="text-[10px] text-slate-400">{exportPeriodLabel}</span>
+                      </div>
+                    </button>
+                    <button type="button"
+                      onClick={() => { exportScheduleCSV(bookedSlots, currentUser.name, viewMode, selectedDay, monthIdx, year, weekStart); setExportDropOpen(false); }}
+                      className="flex w-full items-center gap-2.5 border-t border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
+                    >
+                      <FileDown className="h-4 w-4 text-slate-400" />
+                      <div className="flex flex-1 flex-col">
+                        <span className="font-medium">Export as CSV</span>
+                        <span className="text-[10px] text-slate-400">{exportPeriodLabel}</span>
+                      </div>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <button type="button"
-              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
-            >
-              <Download className="h-4 w-4" /> Export
-            </button>
-            <button type="button"
+              onClick={() => setScheduleMealOpen(true)}
               className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-700"
             >
               <Plus className="h-4 w-4" /> Schedule Meal
@@ -1573,6 +2412,7 @@ export default function MealCalendarPage() {
                 bookedSlots={bookedSlots}
                 onDayClick={setSelected}
                 onQuickAdd={quickAddDay}
+                weeks={weeks}
               />
             ) : (
               <WeekView
@@ -1602,6 +2442,7 @@ export default function MealCalendarPage() {
             onToggle={toggleSlot}
             onBack={() => setSelected(null)}
             userName={currentUser.name}
+            autoJoin={autoJoin}
           />
         )}
       </div>
@@ -1611,8 +2452,20 @@ export default function MealCalendarPage() {
         bookedSlots={bookedSlots}
         onRemoveDay={removeAllForDay}
         onToggleSlot={toggleSlot}
+        onBulkAdd={addBulkSlots}
         userName={currentUser.name}
+        autoJoin={autoJoin}
+        onAutoJoinChange={setAutoJoin}
       />
     </div>
+
+    {/* Page-level modals */}
+    <ScheduleMealModal
+      open={scheduleMealOpen}
+      onClose={() => setScheduleMealOpen(false)}
+      bookedSlots={bookedSlots}
+      onToggle={toggleSlot}
+    />
+    </>
   );
 }
