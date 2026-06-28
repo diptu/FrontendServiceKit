@@ -10,7 +10,7 @@ import {
   X, ArrowLeft, Filter, Pencil,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FadeIn, SlideUp, SlideIn, Modal, SearchBox, TextField, AnimatedNumber } from "@/components/ui";
+import { FadeIn, SlideUp, SlideIn, StaggerContainer, StaggerItem, Modal, SearchBox, TextField, AnimatedNumber } from "@/components/ui";
 import { Button } from "@/components/ui";
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
@@ -1623,7 +1623,25 @@ export default function CostGenerationPage() {
           {/* Step 1 — Upload */}
           <SlideUp className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">1</div>
+              <AnimatePresence mode="wait" initial={false}>
+                {uploads.length > 0 ? (
+                  <motion.div key="s1-done"
+                    initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 24 }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="s1-num"
+                    initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 24 }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white"
+                  >
+                    1
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <h2 className="text-sm font-semibold text-slate-900">Upload Source</h2>
             </div>
 
@@ -1742,7 +1760,25 @@ export default function CostGenerationPage() {
           {/* Step 2 — Meal type counts + active members */}
           <SlideUp delay={0.04} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">2</div>
+              <AnimatePresence mode="wait" initial={false}>
+                {mealsCount > 0 ? (
+                  <motion.div key="s2-done"
+                    initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 24 }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="s2-num"
+                    initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 24 }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white"
+                  >
+                    2
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">Number of Meals by Type</h2>
                 <p className="text-[11px] text-slate-400">Enter how many meals of each type this ingredient batch covers.</p>
@@ -1799,7 +1835,25 @@ export default function CostGenerationPage() {
           <SlideUp delay={0.08} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">3</div>
+                    <AnimatePresence mode="wait" initial={false}>
+                      {items.length > 0 ? (
+                        <motion.div key="s3-done"
+                          initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 24 }}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </motion.div>
+                      ) : (
+                        <motion.div key="s3-num"
+                          initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 24 }}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white"
+                        >
+                          3
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                     <div>
                       <h2 className="text-sm font-semibold text-slate-900">
                         Ingredients — {uploads.length > 1 ? `${uploads.length} days` : uploads[0]?.date ?? "Today"}
@@ -1972,7 +2026,12 @@ export default function CostGenerationPage() {
                         return (
                           <Fragment key={upload.id}>
                             {/* Date group header */}
-                            <tr className="border-b border-indigo-100 bg-indigo-50">
+                            <motion.tr
+                              className="border-b border-indigo-100 bg-indigo-50"
+                              initial={{ opacity: 0, x: -6 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.3, ease: "easeOut" }}
+                            >
                               <td colSpan={9} className="px-4 py-2">
                                 <div className="flex items-center gap-2">
                                   <Calendar className="h-3.5 w-3.5 text-indigo-400" />
@@ -1984,7 +2043,7 @@ export default function CostGenerationPage() {
                                   <span className="ml-auto text-[10px] text-indigo-400 truncate">{upload.filename}</span>
                                 </div>
                               </td>
-                            </tr>
+                            </motion.tr>
                             {/* Items for this day */}
                             <AnimatePresence mode="popLayout">
                             {upload.items.map((item, i) => (
@@ -2105,7 +2164,12 @@ export default function CostGenerationPage() {
                         : 0;
                       const perMeal   = count > 0 ? (costShare / count).toFixed(2) : null;
                       return (
-                        <div key={mt.key} className={`rounded-lg border ${mt.border} ${mt.bg} px-3 py-2`}>
+                        <motion.div
+                          key={mt.key}
+                          className={`rounded-lg border ${mt.border} ${mt.bg} px-3 py-2`}
+                          whileHover={{ y: -3, scale: 1.02 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                        >
                           <div className="flex items-center gap-1 mb-1">
                             <span className="text-sm">{mt.emoji}</span>
                             <span className={`text-[11px] font-semibold ${mt.text}`}>{mt.label}</span>
@@ -2119,7 +2183,7 @@ export default function CostGenerationPage() {
                           <p className={`text-[10px] ${mt.text} opacity-70`}>
                             {count} meals · <AnimatedNumber value={costShare} prefix={currencySymbol} decimals={2} />
                           </p>
-                        </div>
+                        </motion.div>
                       );
                     })}
                   </div>
@@ -2217,22 +2281,24 @@ export default function CostGenerationPage() {
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
                   By day · {uploads.length} days
                 </p>
-                <div className="flex flex-col gap-1.5">
+                <StaggerContainer className="flex flex-col gap-1.5" stagger={0.05} delayChildren={0.05}>
                   {uploads.map(upload => {
                     const dayTotal = upload.items.reduce((s, it) => s + parseFloat(it.total || "0"), 0);
                     return (
-                      <div key={upload.id} className="flex items-center justify-between text-[11px]">
-                        <span className="flex items-center gap-1 text-indigo-200">
-                          <Calendar className="h-3 w-3" />{upload.date}
-                        </span>
-                        <span className="font-semibold text-white">{formatCurrency(dayTotal)}</span>
-                      </div>
+                      <StaggerItem key={upload.id} distance={8} duration={0.25}>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="flex items-center gap-1 text-indigo-200">
+                            <Calendar className="h-3 w-3" />{upload.date}
+                          </span>
+                          <span className="font-semibold text-white">{formatCurrency(dayTotal)}</span>
+                        </div>
+                      </StaggerItem>
                     );
                   })}
-                  <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1.5 text-[11px]">
-                    <span className="text-indigo-300">Avg / day</span>
-                    <span className="font-bold text-white">{formatCurrency(totalAmount / uploads.length)}</span>
-                  </div>
+                </StaggerContainer>
+                <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1.5 text-[11px]">
+                  <span className="text-indigo-300">Avg / day</span>
+                  <span className="font-bold text-white">{formatCurrency(totalAmount / uploads.length)}</span>
                 </div>
               </div>
             )}
@@ -2296,17 +2362,19 @@ export default function CostGenerationPage() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 flex flex-col gap-1.5">
+                <StaggerContainer className="mt-3 flex flex-col gap-1.5" stagger={0.06} delayChildren={0.05}>
                   {COST_BREAKDOWN.map(d => (
-                    <div key={d.name} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color }} />
-                        <span className="text-slate-600">{d.name}</span>
+                    <StaggerItem key={d.name} distance={10} duration={0.3}>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color }} />
+                          <span className="text-slate-600">{d.name}</span>
+                        </div>
+                        <span className="font-semibold text-slate-900">{d.value}%</span>
                       </div>
-                      <span className="font-semibold text-slate-900">{d.value}%</span>
-                    </div>
+                    </StaggerItem>
                   ))}
-                </div>
+                </StaggerContainer>
               </motion.div>
             )}
           </AnimatePresence>
@@ -2316,42 +2384,39 @@ export default function CostGenerationPage() {
             <h2 className="mb-3 text-sm font-semibold text-slate-900">Paid Calculations</h2>
             <div className="flex flex-col gap-2 text-xs">
               {[
-                {
-                  label: "Base Per Meal",
-                  val:   formatCurrency(costPerMeal),
-                  note:  undefined,
-                },
-                {
-                  label: "Transportation",
-                  val:   `+${formatCurrency(transportPerMeal)}`,
-                  note:  transportTotal > 0 ? `${currencySymbol}${transportTotal.toFixed(2)} total` : "from CSV",
-                },
-                {
-                  label: "Cooking Cost",
-                  val:   `+${currencySymbol}0.85`,
-                  note:  undefined,
-                },
-                {
-                  label: "Packaging",
-                  val:   `+${currencySymbol}0.45`,
-                  note:  undefined,
-                },
+                { label: "Base Per Meal",  num: Number(costPerMeal),    prefix: currencySymbol,           note: undefined },
+                { label: "Transportation", num: transportPerMeal,        prefix: `+${currencySymbol}`,     note: transportTotal > 0 ? `${currencySymbol}${transportTotal.toFixed(2)} total` : "from CSV" },
+                { label: "Cooking Cost",   num: 0.85,                   prefix: `+${currencySymbol}`,     note: undefined },
+                { label: "Packaging",      num: 0.45,                   prefix: `+${currencySymbol}`,     note: undefined },
               ].map(item => (
-                <div key={item.label} className="flex items-center justify-between border-b border-slate-50 pb-1.5 last:border-0">
+                <motion.div
+                  key={item.label}
+                  className="flex items-center justify-between border-b border-slate-50 pb-1.5 last:border-0"
+                  whileHover={{ x: 2 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                >
                   <div className="flex flex-col gap-0.5">
                     <span className="text-slate-500">{item.label}</span>
                     {item.note && (
                       <span className="text-[10px] text-orange-500">{item.note}</span>
                     )}
                   </div>
-                  <span className="font-semibold text-slate-900">{item.val}</span>
-                </div>
+                  <AnimatedNumber
+                    value={item.num}
+                    prefix={item.prefix}
+                    decimals={2}
+                    className="font-semibold text-slate-900"
+                  />
+                </motion.div>
               ))}
               <div className="flex items-center justify-between border-t border-slate-200 mt-0.5 pt-1.5">
                 <span className="font-semibold text-slate-700">Total Per Meal</span>
-                <span className="font-bold text-indigo-600 text-sm">
-                  {formatCurrency(Number(costPerMeal) + transportPerMeal + 0.85 + 0.45)}
-                </span>
+                <AnimatedNumber
+                  value={Number(costPerMeal) + transportPerMeal + 0.85 + 0.45}
+                  prefix={currencySymbol}
+                  decimals={2}
+                  className="font-bold text-indigo-600 text-sm"
+                />
               </div>
             </div>
           </SlideIn>

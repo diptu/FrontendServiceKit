@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { TrendingUp, TrendingDown, Download, Calendar, Users, ShoppingBag, DollarSign, UtensilsCrossed, BarChart2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { FadeIn, SlideUp, StaggerContainer, StaggerItem, ScaleIn, SlideIn } from "@/components/ui";
+import { FadeIn, SlideUp, StaggerContainer, StaggerItem, ScaleIn, SlideIn, AnimatedNumber } from "@/components/ui";
 import { Button } from "@/components/ui";
 
 /* ── Data ───────────────────────────────────────────────────────────────── */
@@ -30,20 +30,20 @@ const ORDERS_BY_STATUS = [
 ];
 
 const TOP_PLANS = [
-  { name: "High Protein",   orders: 2400, color: "#6366f1" },
-  { name: "Balanced",       orders: 1980, color: "#818cf8" },
-  { name: "Low Carb",       orders: 1500, color: "#a5b4fc" },
-  { name: "Vegetarian",     orders: 1200, color: "#22c55e" },
-  { name: "Keto",           orders: 900,  color: "#f59e0b" },
-  { name: "Mediterranean",  orders: 680,  color: "#f43f5e" },
+  { name: "High Protein",  orders: 2400, color: "#6366f1" },
+  { name: "Balanced",      orders: 1980, color: "#818cf8" },
+  { name: "Low Carb",      orders: 1500, color: "#a5b4fc" },
+  { name: "Vegetarian",    orders: 1200, color: "#22c55e" },
+  { name: "Keto",          orders: 900,  color: "#f59e0b" },
+  { name: "Mediterranean", orders: 680,  color: "#f43f5e" },
 ];
 
 const TOP_MEALS = [
-  { rank: 1,  name: "Grilled Chicken & Quinoa", orders: 528, revenue: "$6,600",  trend: "+12%", up: true  },
-  { rank: 2,  name: "Green Power Bowl",          orders: 412, revenue: "$4,944",  trend: "+8%",  up: true  },
-  { rank: 3,  name: "Salmon Steamed Veggies",    orders: 368, revenue: "$5,888",  trend: "+5%",  up: true  },
-  { rank: 4,  name: "Avocado Protein Toast",     orders: 295, revenue: "$2,655",  trend: "-3%",  up: false },
-  { rank: 5,  name: "Veggie Buddha Bowl",        orders: 248, revenue: "$2,976",  trend: "+15%", up: true  },
+  { rank: 1, name: "Grilled Chicken & Quinoa", orders: 528, revenue: "$6,600", trend: "+12%", up: true  },
+  { rank: 2, name: "Green Power Bowl",          orders: 412, revenue: "$4,944", trend: "+8%",  up: true  },
+  { rank: 3, name: "Salmon Steamed Veggies",    orders: 368, revenue: "$5,888", trend: "+5%",  up: true  },
+  { rank: 4, name: "Avocado Protein Toast",     orders: 295, revenue: "$2,655", trend: "-3%",  up: false },
+  { rank: 5, name: "Veggie Buddha Bowl",        orders: 248, revenue: "$2,976", trend: "+15%", up: true  },
 ];
 
 const ORDERS_BY_DAY = [
@@ -53,16 +53,16 @@ const ORDERS_BY_DAY = [
 ];
 
 const LOCATIONS = [
-  { name: "Downtown",    orders: 842,  revenue: "$10,524", completion: "97.2%" },
-  { name: "Westside",    orders: 614,  revenue: "$7,368",  completion: "95.8%" },
-  { name: "Eastside",    orders: 548,  revenue: "$6,576",  completion: "96.4%" },
-  { name: "Northgate",   orders: 412,  revenue: "$4,944",  completion: "94.1%" },
-  { name: "South Bay",   orders: 286,  revenue: "$3,432",  completion: "93.5%" },
+  { name: "Downtown",  orders: 842, revenue: "$10,524", completion: "97.2%" },
+  { name: "Westside",  orders: 614, revenue: "$7,368",  completion: "95.8%" },
+  { name: "Eastside",  orders: 548, revenue: "$6,576",  completion: "96.4%" },
+  { name: "Northgate", orders: 412, revenue: "$4,944",  completion: "94.1%" },
+  { name: "South Bay", orders: 286, revenue: "$3,432",  completion: "93.5%" },
 ];
 
 const CUSTOMER_GROWTH = [
-  { month: "Jan", new: 48, total: 820 }, { month: "Feb", new: 62, total: 882 },
-  { month: "Mar", new: 55, total: 937 }, { month: "Apr", new: 78, total: 1015 },
+  { month: "Jan", new: 48, total: 820  }, { month: "Feb", new: 62, total: 882  },
+  { month: "Mar", new: 55, total: 937  }, { month: "Apr", new: 78, total: 1015 },
   { month: "May", new: 88, total: 1103 }, { month: "Jun", new: 72, total: 1175 },
 ];
 
@@ -72,33 +72,50 @@ const RETENTION = [
 ];
 
 const SEGMENTS = [
-  { name: "Premium",    value: 38, color: "#6366f1" },
-  { name: "Standard",   value: 44, color: "#22c55e" },
-  { name: "Basic",      value: 18, color: "#f59e0b" },
+  { name: "Premium",  value: 38, color: "#6366f1" },
+  { name: "Standard", value: 44, color: "#22c55e" },
+  { name: "Basic",    value: 18, color: "#f59e0b" },
 ];
 
 const STATS = [
-  { label: "Total Orders",     value: "2,702", change: "+8.4%",  up: true,  icon: ShoppingBag,    color: "bg-indigo-500",  iconBg: "bg-indigo-50",  iconColor: "text-indigo-600"  },
-  { label: "Total Revenue",    value: "$14,563", change: "+12.1%", up: true,  icon: DollarSign,   color: "bg-emerald-500", iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-  { label: "Total Items",      value: "8,312",  change: "+6.7%",  up: true,  icon: UtensilsCrossed,color:"bg-violet-500",  iconBg: "bg-violet-50",  iconColor: "text-violet-600"  },
-  { label: "Active Members",   value: "312",    change: "+4.2%",  up: true,  icon: Users,         color: "bg-sky-500",     iconBg: "bg-sky-50",     iconColor: "text-sky-600"     },
-  { label: "Avg Order Value",  value: "$112",   change: "+3.7%",  up: true,  icon: BarChart2,     color: "bg-amber-500",   iconBg: "bg-amber-50",   iconColor: "text-amber-600"   },
-  { label: "Avg Meal Plans",   value: "44.47",  change: "-0.8%",  up: false, icon: Calendar,      color: "bg-rose-500",    iconBg: "bg-rose-50",    iconColor: "text-rose-600"    },
+  { label: "Total Orders",    num: 2702,  prefix: "",  decimals: 0, change: "+8.4%",  up: true,  icon: ShoppingBag,     iconBg: "bg-indigo-50",  iconColor: "text-indigo-600"  },
+  { label: "Total Revenue",   num: 14563, prefix: "$", decimals: 0, change: "+12.1%", up: true,  icon: DollarSign,      iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+  { label: "Total Items",     num: 8312,  prefix: "",  decimals: 0, change: "+6.7%",  up: true,  icon: UtensilsCrossed, iconBg: "bg-violet-50",  iconColor: "text-violet-600"  },
+  { label: "Active Members",  num: 312,   prefix: "",  decimals: 0, change: "+4.2%",  up: true,  icon: Users,           iconBg: "bg-sky-50",     iconColor: "text-sky-600"     },
+  { label: "Avg Order Value", num: 112,   prefix: "$", decimals: 0, change: "+3.7%",  up: true,  icon: BarChart2,       iconBg: "bg-amber-50",   iconColor: "text-amber-600"   },
+  { label: "Avg Meal Plans",  num: 44.47, prefix: "",  decimals: 2, change: "-0.8%",  up: false, icon: Calendar,        iconBg: "bg-rose-50",    iconColor: "text-rose-600"    },
+];
+
+interface SummaryItem {
+  label:     string;
+  val:       string | null;
+  num?:      number;
+  prefix?:   string;
+  decimals?: number;
+  sub:       string;
+}
+
+const SUMMARY_ITEMS: SummaryItem[] = [
+  { label: "Peak Revenue Day",  val: "Jun 16, 2026", sub: "$17,600"        },
+  { label: "Most Popular Plan", val: "High Protein",  sub: "2,400 orders"   },
+  { label: "Growth Rate",       val: "+12.1%",        sub: "vs last period" },
+  { label: "Avg Daily Orders",  val: null, num: 90, prefix: "", decimals: 0, sub: "per day" },
 ];
 
 const totalOrders = ORDERS_BY_STATUS.reduce((s, d) => s + d.value, 0);
 
-/* ── Reusable RACI label ───────────────────────────────────────────────── */
+/* ── Section label ──────────────────────────────────────────────────────── */
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-4 text-sm font-semibold text-slate-900">{children}</h2>;
 }
 
 /* ── Page ───────────────────────────────────────────────────────────────── */
 export default function AnalyticsPage() {
-  const [range, setRange] = useState("May 4 – Jun 16, 2026");
+  const [range] = useState("May 4 – Jun 16, 2026");
 
   return (
     <div className="flex flex-col gap-6">
+
       {/* Header */}
       <FadeIn className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -113,31 +130,40 @@ export default function AnalyticsPage() {
         </div>
       </FadeIn>
 
-      {/* Stat cards */}
+      {/* Stat cards — AnimatedNumber count-up + spring hover lift */}
       <StaggerContainer className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
         {STATS.map((s) => {
           const Icon = s.icon;
           return (
             <StaggerItem key={s.label}>
-              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <motion.div
+                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
+                whileHover={{ y: -3 }}
+                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+              >
                 <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${s.iconBg}`}>
                   <Icon className={`h-4 w-4 ${s.iconColor}`} />
                 </div>
                 <p className="text-xs font-medium text-slate-500">{s.label}</p>
-                <p className="mt-1 text-xl font-bold text-slate-900">{s.value}</p>
+                <AnimatedNumber
+                  value={s.num}
+                  prefix={s.prefix}
+                  decimals={s.decimals}
+                  className="mt-1 block text-xl font-bold text-slate-900"
+                />
                 <div className={`mt-1 flex items-center gap-1 text-[11px] font-medium ${s.up ? "text-emerald-600" : "text-red-500"}`}>
                   {s.up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                   {s.change} vs last period
                 </div>
-              </div>
+              </motion.div>
             </StaggerItem>
           );
         })}
       </StaggerContainer>
 
-      {/* Row 1: Revenue/Orders chart + Status donut */}
-      <SlideUp className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      {/* Row 1: area chart slides from left, donut slides from right */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <SlideIn from="left" delay={0} className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <SectionLabel>Orders &amp; Revenue Over Time</SectionLabel>
             <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-600">Live</span>
@@ -146,11 +172,11 @@ export default function AnalyticsPage() {
             <AreaChart data={REVENUE_ORDERS} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
               <defs>
                 <linearGradient id="aRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.18} />
+                  <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.18} />
                   <stop offset="95%" stopColor="#6366f1" stopOpacity={0.01} />
                 </linearGradient>
                 <linearGradient id="aOrd" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.18} />
+                  <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.18} />
                   <stop offset="95%" stopColor="#22c55e" stopOpacity={0.01} />
                 </linearGradient>
               </defs>
@@ -164,9 +190,9 @@ export default function AnalyticsPage() {
               <Area yAxisId="ord" type="monotone" dataKey="orders"  stroke="#22c55e" strokeWidth={2} fill="url(#aOrd)" name="Orders" />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
+        </SlideIn>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <SlideIn from="right" delay={0.05} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <SectionLabel>Orders by Status</SectionLabel>
           <ScaleIn className="relative flex items-center justify-center">
             <div className="h-44 w-44">
@@ -185,37 +211,50 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </ScaleIn>
-          <div className="mt-3 flex flex-col gap-2">
+          {/* Staggered legend */}
+          <StaggerContainer className="mt-3 flex flex-col gap-2" stagger={0.07} delayChildren={0.1}>
             {ORDERS_BY_STATUS.map(d => (
-              <div key={d.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.color }} />
-                  <span className="text-slate-600">{d.name}</span>
+              <StaggerItem key={d.name} distance={12} duration={0.35}>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.color }} />
+                    <span className="text-slate-600">{d.name}</span>
+                  </div>
+                  <span className="font-semibold text-slate-900">{d.value}</span>
                 </div>
-                <span className="font-semibold text-slate-900">{d.value}</span>
-              </div>
+              </StaggerItem>
             ))}
-          </div>
-        </div>
-      </SlideUp>
+          </StaggerContainer>
+        </SlideIn>
+      </div>
 
-      {/* Row 2: Top plans bar + Top meals table */}
+      {/* Row 2: Animated plan bars + Top meals table */}
       <SlideUp delay={0.04} className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <SectionLabel>Top Meal Plans by Orders</SectionLabel>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={TOP_PLANS} layout="vertical" margin={{ left: 0, right: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#64748b" }} axisLine={false} tickLine={false} width={96} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-              <Bar dataKey="orders" fill="#6366f1" radius={[0, 4, 4, 0]}>
-                {TOP_PLANS.map((p, i) => (
-                  <Cell key={i} fill={p.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="flex flex-col gap-3 pt-1">
+            {TOP_PLANS.map((p, i) => {
+              const pct = (p.orders / TOP_PLANS[0].orders) * 100;
+              return (
+                <div key={p.name} className="flex items-center gap-3 text-xs">
+                  <span className="w-28 shrink-0 truncate text-right text-slate-600">{p.name}</span>
+                  <div className="flex-1 h-5 overflow-hidden rounded-full bg-slate-100">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ background: p.color }}
+                      initial={{ width: 0 }}
+                      whileInView={{ width: `${pct}%` }}
+                      viewport={{ once: true, margin: "-40px" }}
+                      transition={{ duration: 0.65, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </div>
+                  <span className="w-12 shrink-0 text-right font-semibold text-slate-700">
+                    {p.orders.toLocaleString()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -292,8 +331,8 @@ export default function AnalyticsPage() {
               {LOCATIONS.map((l, i) => (
                 <motion.tr
                   key={l.name}
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
+                  initial={{ opacity: 0, x: 8 }}
+                  whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.06, duration: 0.4 }}
                   className="hover:bg-slate-50/60 transition-colors"
@@ -302,9 +341,20 @@ export default function AnalyticsPage() {
                   <td className="px-4 py-3 text-slate-600">{l.orders.toLocaleString()}</td>
                   <td className="px-4 py-3 font-semibold text-slate-900">{l.revenue}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                      {l.completion}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full bg-emerald-400"
+                          initial={{ width: 0 }}
+                          whileInView={{ width: `${parseFloat(l.completion)}%` }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.6, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
+                        />
+                      </div>
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                        {l.completion}
+                      </span>
+                    </div>
                   </td>
                 </motion.tr>
               ))}
@@ -321,8 +371,8 @@ export default function AnalyticsPage() {
             <AreaChart data={CUSTOMER_GROWTH} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
               <defs>
                 <linearGradient id="aCG" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.18} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.18} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0}    />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -330,7 +380,7 @@ export default function AnalyticsPage() {
               <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }} />
               <Area type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={2} fill="url(#aCG)" name="Total Members" />
-              <Line type="monotone" dataKey="new" stroke="#22c55e" strokeWidth={2} dot={false} name="New Members" />
+              <Line type="monotone" dataKey="new"   stroke="#22c55e" strokeWidth={2} dot={false}       name="New Members"   />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -361,17 +411,20 @@ export default function AnalyticsPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="w-full flex flex-col gap-1.5">
+            {/* Staggered segment legend */}
+            <StaggerContainer className="w-full flex flex-col gap-1.5" stagger={0.08} delayChildren={0.15}>
               {SEGMENTS.map(s => (
-                <div key={s.name} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
-                    <span className="text-slate-600">{s.name}</span>
+                <StaggerItem key={s.name} distance={10} duration={0.3}>
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
+                      <span className="text-slate-600">{s.name}</span>
+                    </div>
+                    <span className="font-bold text-slate-900">{s.value}%</span>
                   </div>
-                  <span className="font-bold text-slate-900">{s.value}%</span>
-                </div>
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerContainer>
           </ScaleIn>
         </div>
       </SlideUp>
@@ -383,12 +436,7 @@ export default function AnalyticsPage() {
             <h2 className="text-sm font-semibold text-slate-900">Data Summary</h2>
           </div>
           <div className="grid grid-cols-2 divide-x divide-slate-100 sm:grid-cols-4">
-            {[
-              { label: "Peak Revenue Day",  val: "Jun 16, 2026",  sub: "$17,600" },
-              { label: "Most Popular Plan", val: "High Protein",   sub: "2,400 orders" },
-              { label: "Growth Rate",       val: "+12.1%",         sub: "vs last period" },
-              { label: "Avg Daily Orders",  val: "90",             sub: "per day" },
-            ].map((item, i) => (
+            {SUMMARY_ITEMS.map((item, i) => (
               <motion.div
                 key={item.label}
                 initial={{ opacity: 0, y: 12 }}
@@ -398,7 +446,15 @@ export default function AnalyticsPage() {
                 className="p-4"
               >
                 <p className="text-xs font-medium text-slate-500">{item.label}</p>
-                <p className="mt-1 text-base font-bold text-slate-900">{item.val}</p>
+                {item.num !== undefined
+                  ? <AnimatedNumber
+                      value={item.num}
+                      prefix={item.prefix ?? ""}
+                      decimals={item.decimals ?? 0}
+                      className="mt-1 block text-base font-bold text-slate-900"
+                    />
+                  : <p className="mt-1 text-base font-bold text-slate-900">{item.val}</p>
+                }
                 <p className="mt-0.5 text-[11px] text-slate-400">{item.sub}</p>
               </motion.div>
             ))}
