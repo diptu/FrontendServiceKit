@@ -17,6 +17,7 @@ import { Button } from "@/components/ui";
 interface IngredientItem {
   id:              string;
   name:            string;
+  emoji?:          string;
   date?:           string;
   qty:             string;
   unit:            string;
@@ -47,6 +48,7 @@ interface IngredientSuggestion {
   unit:      string;
   unitPrice: string; // typical BDT price, numeric string
   bg:        string; // Tailwind bg class
+  isCustom?: boolean;
 }
 
 type MealTypeKey = "breakfast" | "lunch" | "dinner" | "snack";
@@ -244,10 +246,15 @@ const INGREDIENT_DB: IngredientSuggestion[] = [
   { id:"ing-63", name:"Transportation Cost",emoji:"🚗", primary:"Transport & Logistics", sub:"Transportation", tags:["delivery","freight","transport","travel","trip","rickshaw","cng","uber"], unit:"trip", unitPrice:"30", bg:"bg-slate-100" },
 ];
 
-function searchIngredients(query: string): IngredientSuggestion[] {
-  if (!query.trim()) return INGREDIENT_DB.slice(0, 12);
-  const q = query.toLowerCase().trim();
-  return INGREDIENT_DB
+function searchIngredients(query: string, customDb: IngredientSuggestion[] = []): IngredientSuggestion[] {
+  if (!query.trim()) {
+    // Custom items always shown first; fill the rest from the popular DB up to 12 total
+    const popular = INGREDIENT_DB.slice(0, Math.max(0, 12 - customDb.length));
+    return [...customDb, ...popular];
+  }
+  const q      = query.toLowerCase().trim();
+  const fullDb = [...customDb, ...INGREDIENT_DB];
+  return fullDb
     .map(item => {
       let score = 0;
       const n = item.name.toLowerCase();
@@ -262,12 +269,35 @@ function searchIngredients(query: string): IngredientSuggestion[] {
       }
       if (item.sub.toLowerCase().includes(q))     score += 15;
       if (item.primary.toLowerCase().includes(q)) score += 10;
+      if (item.isCustom)                          score += 5; // boost saved items for equal matches
       return { item, score };
     })
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 12)
     .map(x => x.item);
+}
+
+/* ── Emoji resolution ───────────────────────────────────────────────────── */
+const SUB_EMOJI_DEFAULTS: Record<string, string> = {
+  "Proteins":            "🍗",
+  "Vegetables":          "🥬",
+  "Grains & Staples":    "🍚",
+  "Dairy & Eggs":        "🥛",
+  "Oils & Fats":         "🫒",
+  "Fruits":              "🍎",
+  "Spices & Herbs":      "🌿",
+  "Nuts & Seeds":        "🥜",
+  "Condiments & Sauces": "🍯",
+  "Transportation":      "🚗",
+};
+
+function getIngredientEmoji(name: string, sub?: string, primary?: string): string {
+  const match = INGREDIENT_DB.find(ing => ing.name.toLowerCase() === name.toLowerCase());
+  if (match) return match.emoji;
+  if (sub && SUB_EMOJI_DEFAULTS[sub]) return SUB_EMOJI_DEFAULTS[sub];
+  if (primary === "Transport & Logistics") return "🚗";
+  return "📦";
 }
 
 /* ── CSV helpers ─────────────────────────────────────────────────────────── */
@@ -370,7 +400,7 @@ function parseCsv(text: string): IngredientItem[] | null {
     const displayQty = finalQty === 1 && !qty ? "1" : (qty || String(finalQty));
 
     const cat = assignCategory(name);
-    return { id: `csv-${i}`, name, date: date || undefined, qty: displayQty, unit, unitPrice, total, purchaseQty, amountPaid, priceSource, ...(cat ?? {}) };
+    return { id: `csv-${i}`, name, emoji: getIngredientEmoji(name, cat?.sub, cat?.primary), date: date || undefined, qty: displayQty, unit, unitPrice, total, purchaseQty, amountPaid, priceSource, ...(cat ?? {}) };
   }).filter(it => it.name);
 }
 
@@ -577,29 +607,35 @@ function MealTypeCountGrid({
 
 /* ── Ingredient search modal (add + edit) ───────────────────────────────── */
 function IngredientSearchModal({
-  open, onClose, onAdd, editItem, onEdit,
+  open, onClose, onAdd, editItem, onEdit, customIngredients, onCustomIngredient,
 }: {
-  open:       boolean;
-  onClose:    () => void;
-  onAdd:      (item: IngredientItem) => void;
-  editItem?:  IngredientItem;
-  onEdit?:    (item: IngredientItem) => void;
+  open:                boolean;
+  onClose:             () => void;
+  onAdd:               (item: IngredientItem) => void;
+  editItem?:           IngredientItem;
+  onEdit?:             (item: IngredientItem) => void;
+  customIngredients:   IngredientSuggestion[];
+  onCustomIngredient?: (ing: IngredientSuggestion) => void;
 }) {
   const sym      = PAYMENT_CONFIG.symbol;
   const isEdit   = !!editItem;
 
-  const [query,       setQuery]       = useState("");
-  const [selected,    setSelected]    = useState<IngredientSuggestion | null>(null);
-  const [qty,         setQty]         = useState("1");
-  const [unit,        setUnit]        = useState("");
-  const [unitPrice,   setUnitPrice]   = useState("");
-  const [purchaseQty, setPurchaseQty] = useState("");
-  const [amountPaid,  setAmountPaid]  = useState("");
-  const [date,        setDate]        = useState("");
+  const [query,         setQuery]         = useState("");
+  const [selected,      setSelected]      = useState<IngredientSuggestion | null>(null);
+  const [isCustom,      setIsCustom]      = useState(false);
+  const [customPrimary, setCustomPrimary] = useState("Food & Dining");
+  const [customSub,     setCustomSub]     = useState("Other");
+  const [qty,           setQty]           = useState("1");
+  const [unit,          setUnit]          = useState("");
+  const [unitPrice,     setUnitPrice]     = useState("");
+  const [purchaseQty,   setPurchaseQty]   = useState("");
+  const [amountPaid,    setAmountPaid]    = useState("");
+  const [date,          setDate]          = useState("");
 
   useEffect(() => {
     if (!open) {
-      setQuery(""); setSelected(null);
+      setQuery(""); setSelected(null); setIsCustom(false);
+      setCustomPrimary("Food & Dining"); setCustomSub("Other");
       setQty("1"); setUnit(""); setUnitPrice("");
       setPurchaseQty(""); setAmountPaid(""); setDate("");
       return;
@@ -632,12 +668,38 @@ function IngredientSearchModal({
     }
   }, [open, editItem]);
 
-  const results = searchIngredients(query);
+  const results = searchIngredients(query, customIngredients);
 
   function handleSelect(ing: IngredientSuggestion) {
     setSelected(ing);
     setUnit(ing.unit);
     setUnitPrice(ing.unitPrice);
+    setIsCustom(false);
+  }
+
+  function handleAddCustom() {
+    const name = query.trim();
+    if (!name) return;
+    const cat     = assignCategory(name);
+    const primary = cat?.primary ?? "Food & Dining";
+    const sub     = cat?.sub     ?? "Other";
+    setCustomPrimary(primary);
+    setCustomSub(sub);
+    setIsCustom(true);
+    setUnit("");
+    setUnitPrice("0");
+    setSelected({
+      id:        `custom-${Date.now()}`,
+      name:      name.charAt(0).toUpperCase() + name.slice(1),
+      emoji:     "📦",
+      primary,
+      sub,
+      tags:      [],
+      unit:      "",
+      unitPrice: "0",
+      bg:        "bg-slate-100",
+      isCustom:  true,
+    });
   }
 
   function handleAdd() {
@@ -655,8 +717,9 @@ function IngredientSearchModal({
     const payload: IngredientItem = {
       id:          isEdit ? editItem!.id : `manual-${Date.now()}`,
       name:        selected.name,
-      primary:     selected.primary,
-      sub:         selected.sub,
+      emoji:       selected.emoji,
+      primary:     isCustom ? customPrimary : selected.primary,
+      sub:         isCustom ? customSub     : selected.sub,
       date:        date || undefined,
       qty:         String(finalQty),
       unit,
@@ -670,6 +733,16 @@ function IngredientSearchModal({
       onEdit?.(payload);
     } else {
       onAdd(payload);
+      if (isCustom && selected) {
+        onCustomIngredient?.({
+          ...selected,
+          primary:   customPrimary,
+          sub:       customSub,
+          unit:      unit || selected.unit,
+          unitPrice: finalUnitPrice || "0",
+          isCustom:  true,
+        });
+      }
     }
   }
 
@@ -681,8 +754,10 @@ function IngredientSearchModal({
   const modalDesc = isEdit
     ? `${editItem!.primary ?? "Food & Dining"} · ${editItem!.sub ?? "Other"}`
     : selected
-      ? `${selected.primary} · ${selected.sub}`
-      : "Type to search, or browse popular ingredients below";
+      ? isCustom
+        ? `${customPrimary} · ${customSub} · custom item`
+        : `${selected.primary} · ${selected.sub}`
+      : "Type to search, or add a custom item not in the list";
 
   return (
     <Modal
@@ -695,7 +770,7 @@ function IngredientSearchModal({
         selected ? (
           <>
             {!isEdit && (
-              <Button variant="secondary" size="sm" icon={ArrowLeft} onClick={() => setSelected(null)}>
+              <Button variant="secondary" size="sm" icon={ArrowLeft} onClick={() => { setSelected(null); setIsCustom(false); }}>
                 Change
               </Button>
             )}
@@ -720,34 +795,58 @@ function IngredientSearchModal({
           />
           <div>
             <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              {query.trim() ? `Results (${results.length})` : "Popular Ingredients"}
+              {query.trim()
+                ? `Results (${results.length})`
+                : customIngredients.length > 0
+                  ? `Grocery Library · ${customIngredients.length} saved`
+                  : "Popular Ingredients"}
             </p>
             {results.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
                 <span className="text-4xl">🔍</span>
                 <p className="text-sm font-medium text-slate-600">No ingredients found</p>
-                <p className="text-xs text-slate-400">Try a different name or category</p>
+                <p className="text-xs text-slate-400">Try a different spelling, or add it as a custom item</p>
+                {query.trim() && (
+                  <Button size="sm" icon={Plus} onClick={handleAddCustom}>
+                    Add &ldquo;{query.trim()}&rdquo; as custom item
+                  </Button>
+                )}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {results.map(ing => (
-                  <motion.button
-                    key={ing.id}
-                    whileHover={{ scale: 1.04, y: -2 }}
-                    whileTap={{ scale: 0.97 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                    onClick={() => handleSelect(ing)}
-                    className={`flex flex-col items-center rounded-xl border-2 border-transparent ${ing.bg} p-3 text-center transition-colors hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400`}
-                  >
-                    <span className="text-3xl leading-none mb-1.5">{ing.emoji}</span>
-                    <p className="text-[11px] font-semibold text-slate-800 leading-tight">{ing.name}</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 truncate w-full text-center">{ing.sub}</p>
-                    <p className="mt-1 text-[10px] font-semibold text-emerald-600">
-                      {sym}{ing.unitPrice}/{ing.unit}
-                    </p>
-                  </motion.button>
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {results.map(ing => (
+                    <motion.button
+                      key={ing.id}
+                      whileHover={{ scale: 1.04, y: -2 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                      onClick={() => handleSelect(ing)}
+                      className={`relative flex flex-col items-center rounded-xl border-2 ${ing.isCustom ? "border-violet-200" : "border-transparent"} ${ing.bg} p-3 text-center transition-colors hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400`}
+                    >
+                      {ing.isCustom && (
+                        <span className="absolute top-1.5 right-1.5 rounded-full bg-violet-500 px-1.5 py-0.5 text-[8px] font-bold text-white leading-none">
+                          Saved
+                        </span>
+                      )}
+                      <span className="text-3xl leading-none mb-1.5">{ing.emoji}</span>
+                      <p className="text-[11px] font-semibold text-slate-800 leading-tight">{ing.name}</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5 truncate w-full text-center">{ing.sub}</p>
+                      <p className="mt-1 text-[10px] font-semibold text-emerald-600">
+                        {sym}{ing.unitPrice}/{ing.unit}
+                      </p>
+                    </motion.button>
+                  ))}
+                </div>
+                {query.trim() && (
+                  <div className="mt-3 flex items-center justify-center gap-2 border-t border-slate-100 pt-3">
+                    <span className="text-[11px] text-slate-400">Not what you&apos;re looking for?</span>
+                    <Button size="sm" variant="outline" icon={Plus} onClick={handleAddCustom}>
+                      Add &ldquo;{query.trim()}&rdquo; as custom item
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -755,16 +854,61 @@ function IngredientSearchModal({
         /* ── Step 2: Fill Details ── */
         <div className="flex flex-col gap-4">
           {/* Selected ingredient header */}
-          <div className={`flex items-center gap-3 rounded-xl border-2 border-indigo-200 ${selected.bg} px-4 py-3`}>
+          <div className={`flex items-center gap-3 rounded-xl border-2 ${isCustom ? "border-violet-200 bg-violet-50" : "border-indigo-200"} ${isCustom ? "" : selected.bg} px-4 py-3`}>
             <span className="text-3xl leading-none">{selected.emoji}</span>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-slate-900">{selected.name}</p>
-              <p className="text-[11px] text-slate-500">{selected.primary} · {selected.sub}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-slate-900">{selected.name}</p>
+                {isCustom && (
+                  <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-0.5 text-[9px] font-bold text-violet-700">
+                    Custom
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {isCustom ? customPrimary : selected.primary} · {isCustom ? customSub : selected.sub}
+              </p>
             </div>
-            <span className="text-[11px] font-semibold text-emerald-600 shrink-0">
-              est. {sym}{selected.unitPrice}/{selected.unit}
-            </span>
+            {!isCustom && (
+              <span className="text-[11px] font-semibold text-emerald-600 shrink-0">
+                est. {sym}{selected.unitPrice}/{selected.unit}
+              </span>
+            )}
           </div>
+
+          {/* Category pickers — only for custom items */}
+          {isCustom && (
+            <div className="grid grid-cols-2 gap-3 rounded-xl border border-violet-200 bg-violet-50/60 p-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold text-violet-800">Primary Category</label>
+                <select
+                  value={customPrimary}
+                  onChange={e => {
+                    setCustomPrimary(e.target.value);
+                    setCustomSub(Object.keys(CATEGORY_TAXONOMY[e.target.value] ?? {})[0] ?? "Other");
+                  }}
+                  className="rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                >
+                  {Object.keys(CATEGORY_TAXONOMY).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold text-violet-800">Subcategory</label>
+                <select
+                  value={customSub}
+                  onChange={e => setCustomSub(e.target.value)}
+                  className="rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                >
+                  {Object.keys(CATEGORY_TAXONOMY[customPrimary] ?? {}).map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                  {!CATEGORY_TAXONOMY[customPrimary]?.["Other"] && (
+                    <option value="Other">Other</option>
+                  )}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Form fields */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -865,9 +1009,32 @@ export default function CostGenerationPage() {
   });
   const [activeMembers, setActiveMembers] = useState(() => getOrgActiveMembers(orgSlug));
 
-  // Category filter state
+  // Tenant-scoped custom ingredient library, persisted across sessions
+  const [customIngredients, setCustomIngredients] = useState<IngredientSuggestion[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem(`custom-ingredients-${orgSlug}`);
+      return stored ? (JSON.parse(stored) as IngredientSuggestion[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  function saveCustomIngredient(ing: IngredientSuggestion) {
+    setCustomIngredients(prev => {
+      // Deduplicate by name (case-insensitive)
+      if (prev.some(i => i.name.toLowerCase() === ing.name.toLowerCase())) return prev;
+      const updated = [...prev, { ...ing, isCustom: true }];
+      try { localStorage.setItem(`custom-ingredients-${orgSlug}`, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  }
+
+  // Filter state
+  const [filterDate,    setFilterDate]    = useState<string>("all");
   const [filterPrimary, setFilterPrimary] = useState<string>("all");
   const [filterSub,     setFilterSub]     = useState<string>("all");
+  const [filterSource,  setFilterSource]  = useState<string>("all");
   const [filterItem,    setFilterItem]    = useState<string>("all");
 
   // Ingredient search / edit modal
@@ -878,32 +1045,67 @@ export default function CostGenerationPage() {
   const items    = uploads.flatMap(u => u.items);
   const uploaded = uploads.length > 0;
 
-  // Filter option lists — derived from actual items present in the table
-  const primaryOptions  = [...new Set(items.map(i => i.primary).filter((v): v is string => !!v))].sort();
-  const subOptions      = [...new Set(
-    items.filter(i => filterPrimary === "all" || i.primary === filterPrimary)
-         .map(i => i.sub).filter((v): v is string => !!v)
+  // Filter option lists — each level restricted to what exists under the active upstream filters
+
+  // Date: always all uploaded dates (top of cascade, no upstream filter)
+  const dateOptions = [...new Set(uploads.map(u => u.date))].sort();
+
+  // Source: only sources that exist on the selected date
+  const sourceOptions = [...new Set(
+    uploads
+      .filter(u => filterDate === "all" || u.date === filterDate)
+      .map(u => u.source)
+  )].sort() as ("receipt" | "csv" | "manual")[];
+
+  // Items that survive date + source filters — used as the base for category options
+  const dateSourceItems = uploads
+    .filter(u => {
+      if (filterDate   !== "all" && u.date   !== filterDate)   return false;
+      if (filterSource !== "all" && u.source !== filterSource) return false;
+      return true;
+    })
+    .flatMap(u => u.items);
+
+  // Primary: only categories present in date+source filtered items
+  const primaryOptions = [...new Set(
+    dateSourceItems.map(i => i.primary).filter((v): v is string => !!v)
   )].sort();
+
+  // Subcategory: only subcategories present within the selected primary (and date+source)
+  const subOptions = [...new Set(
+    dateSourceItems
+      .filter(i => filterPrimary === "all" || i.primary === filterPrimary)
+      .map(i => i.sub).filter((v): v is string => !!v)
+  )].sort();
+
+  // Item names: only names present within selected primary+sub (and date+source)
   const itemNameOptions = [...new Set(
-    items.filter(i => {
-      if (filterPrimary !== "all" && i.primary !== filterPrimary) return false;
-      if (filterSub     !== "all" && i.sub     !== filterSub)     return false;
-      return true;
-    }).map(i => i.name)
+    dateSourceItems
+      .filter(i => {
+        if (filterPrimary !== "all" && i.primary !== filterPrimary) return false;
+        if (filterSub     !== "all" && i.sub     !== filterSub)     return false;
+        return true;
+      }).map(i => i.name)
   )].sort();
 
-  const anyFilterActive = filterPrimary !== "all" || filterSub !== "all" || filterItem !== "all";
+  const anyFilterActive = filterDate !== "all" || filterPrimary !== "all" || filterSub !== "all" || filterSource !== "all" || filterItem !== "all";
 
-  // Uploads with items filtered by the active category selections
-  const filteredUploads = uploads.map(upload => ({
-    ...upload,
-    items: upload.items.filter(item => {
-      if (filterPrimary !== "all" && item.primary !== filterPrimary) return false;
-      if (filterSub     !== "all" && item.sub     !== filterSub)     return false;
-      if (filterItem    !== "all" && item.name    !== filterItem)     return false;
+  // Uploads filtered by date/source first, then items filtered by category/item
+  const filteredUploads = uploads
+    .filter(upload => {
+      if (filterDate   !== "all" && upload.date   !== filterDate)   return false;
+      if (filterSource !== "all" && upload.source !== filterSource) return false;
       return true;
-    }),
-  })).filter(u => u.items.length > 0);
+    })
+    .map(upload => ({
+      ...upload,
+      items: upload.items.filter(item => {
+        if (filterPrimary !== "all" && item.primary !== filterPrimary) return false;
+        if (filterSub     !== "all" && item.sub     !== filterSub)     return false;
+        if (filterItem    !== "all" && item.name    !== filterItem)     return false;
+        return true;
+      }),
+    })).filter(u => u.items.length > 0);
 
   const filteredItemCount = filteredUploads.flatMap(u => u.items).length;
 
@@ -1301,10 +1503,26 @@ export default function CostGenerationPage() {
                   </div>
                 ) : (
                 <>
-                {/* ── Category filter bar ── */}
+                {/* ── Filter bar ── */}
                 <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
                   <Filter className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                   <span className="text-[11px] font-semibold text-slate-500 mr-0.5">Filter:</span>
+
+                  <select
+                    value={filterDate}
+                    onChange={e => {
+                      setFilterDate(e.target.value);
+                      setFilterSource("all");
+                      setFilterPrimary("all");
+                      setFilterSub("all");
+                      setFilterItem("all");
+                    }}
+                    disabled={dateOptions.length === 0}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40"
+                  >
+                    <option value="all">All Dates</option>
+                    {dateOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
 
                   <select
                     value={filterPrimary}
@@ -1326,6 +1544,25 @@ export default function CostGenerationPage() {
                   </select>
 
                   <select
+                    value={filterSource}
+                    onChange={e => {
+                      setFilterSource(e.target.value);
+                      setFilterPrimary("all");
+                      setFilterSub("all");
+                      setFilterItem("all");
+                    }}
+                    disabled={sourceOptions.length === 0}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40"
+                  >
+                    <option value="all">All Sources</option>
+                    {sourceOptions.map(s => (
+                      <option key={s} value={s}>
+                        {s === "receipt" ? "Receipt / Image" : s === "csv" ? "CSV Template" : "Manual Entry"}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
                     value={filterItem}
                     onChange={e => setFilterItem(e.target.value)}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
@@ -1338,7 +1575,7 @@ export default function CostGenerationPage() {
                     <>
                       <button
                         type="button"
-                        onClick={() => { setFilterPrimary("all"); setFilterSub("all"); setFilterItem("all"); }}
+                        onClick={() => { setFilterDate("all"); setFilterPrimary("all"); setFilterSub("all"); setFilterSource("all"); setFilterItem("all"); }}
                         className="flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-600 hover:bg-indigo-100 transition-colors"
                       >
                         <X className="h-2.5 w-2.5" /> Clear
@@ -1396,10 +1633,17 @@ export default function CostGenerationPage() {
                                   </span>
                                 </td>
                                 <td className="px-4 py-2.5">
-                                  <div className="font-medium text-slate-900">{item.name}</div>
-                                  {item.sub && (
-                                    <div className="text-[9px] text-slate-400 mt-0.5">{item.sub}</div>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xl leading-none shrink-0" aria-hidden="true">
+                                      {item.emoji ?? getIngredientEmoji(item.name, item.sub, item.primary)}
+                                    </span>
+                                    <div>
+                                      <div className="font-medium text-slate-900">{item.name}</div>
+                                      {item.sub && (
+                                        <div className="text-[9px] text-slate-400 mt-0.5">{item.sub}</div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </td>
                                 <td className="px-4 py-2.5 text-slate-600">{item.qty}</td>
                                 <td className="px-4 py-2.5 text-slate-500">{item.unit}</td>
@@ -1794,6 +2038,8 @@ export default function CostGenerationPage() {
         onAdd={item  => { addManualItem(item); setSearchOpen(false); }}
         editItem={editingItem ?? undefined}
         onEdit={item => { updateItem(item); setEditingItem(null); }}
+        customIngredients={customIngredients}
+        onCustomIngredient={saveCustomIngredient}
       />
     </div>
   );
