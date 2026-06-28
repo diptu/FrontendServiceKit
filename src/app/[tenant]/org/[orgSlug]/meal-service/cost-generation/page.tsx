@@ -1,22 +1,23 @@
 "use client";
 
-import { useState, useRef, useCallback, Fragment } from "react";
+import { useState, useRef, useCallback, Fragment, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   Upload, FileText, Trash2, Plus, CheckCircle2,
   HelpCircle, ChevronRight, Calculator, Lightbulb,
   Download, TableProperties, AlertCircle, Zap, Users, Calendar,
+  X, ArrowLeft, Filter, Pencil,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FadeIn, SlideUp, SlideIn } from "@/components/ui";
+import { FadeIn, SlideUp, SlideIn, Modal, SearchBox, TextField } from "@/components/ui";
 import { Button } from "@/components/ui";
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface IngredientItem {
   id:              string;
   name:            string;
-  date?:           string; // purchase date from CSV
+  date?:           string;
   qty:             string;
   unit:            string;
   unitPrice:       string;
@@ -24,14 +25,28 @@ interface IngredientItem {
   purchaseQty?:    string;
   amountPaid?:     string;
   priceSource:     "direct" | "calculated";
+  primary?:        string; // "Food & Dining" | "Transport & Logistics"
+  sub?:            string; // "Grains & Staples" | "Proteins" | "Vegetables" | …
 }
 
 interface DailyUpload {
   id:       string;
   date:     string;           // YYYY-MM-DD
   filename: string;
-  source:   "receipt" | "csv";
+  source:   "receipt" | "csv" | "manual";
   items:    IngredientItem[];
+}
+
+interface IngredientSuggestion {
+  id:        string;
+  name:      string;
+  emoji:     string;
+  primary:   string;
+  sub:       string;
+  tags:      string[];
+  unit:      string;
+  unitPrice: string; // typical BDT price, numeric string
+  bg:        string; // Tailwind bg class
 }
 
 type MealTypeKey = "breakfast" | "lunch" | "dinner" | "snack";
@@ -84,23 +99,22 @@ const MEAL_TYPE_DEFS: {
 /* ── Mock defaults (receipt extraction simulation) ──────────────────────── */
 // `total` stores a plain numeric string — currency symbol applied only at display.
 const DEFAULT_ITEMS: IngredientItem[] = [
-  { id:"i1",  name:"Chicken Breast",     qty:"2.5", unit:"kg",   unitPrice:"1.67",  total:"4.18",  purchaseQty:"3",   amountPaid:"5.00", priceSource:"calculated" },
-  { id:"i2",  name:"Brown Rice",         qty:"1.0", unit:"kg",   unitPrice:"2.80",  total:"2.80",  priceSource:"direct"     },
-  { id:"i3",  name:"Mixed Vegetables",   qty:"1.5", unit:"kg",   unitPrice:"3.20",  total:"4.80",  purchaseQty:"2",   amountPaid:"6.40", priceSource:"calculated" },
-  { id:"i4",  name:"Olive Oil",          qty:"250", unit:"ml",   unitPrice:"0.012", total:"3.00",  purchaseQty:"250", amountPaid:"3.00", priceSource:"calculated" },
-  { id:"i5",  name:"Garlic",             qty:"50",  unit:"g",    unitPrice:"0.04",  total:"2.00",  priceSource:"direct"     },
-  { id:"i6",  name:"Lemon",              qty:"3",   unit:"pcs",  unitPrice:"0.50",  total:"1.50",  priceSource:"direct"     },
-  { id:"i7",  name:"Herbs & Spices",     qty:"30",  unit:"g",    unitPrice:"0.20",  total:"6.00",  priceSource:"direct"     },
-  { id:"i8",  name:"Quinoa",             qty:"500", unit:"g",    unitPrice:"0.012", total:"6.00",  purchaseQty:"500", amountPaid:"6.00", priceSource:"calculated" },
-  { id:"i9",  name:"Seasonal Greens",    qty:"800", unit:"g",    unitPrice:"0.004", total:"3.20",  priceSource:"direct"     },
-  { id:"i10", name:"Greek Yogurt",       qty:"500", unit:"ml",   unitPrice:"0.008", total:"4.00",  priceSource:"direct"     },
-  { id:"i11", name:"Almonds",            qty:"200", unit:"g",    unitPrice:"0.025", total:"5.00",  priceSource:"direct"     },
-  { id:"i12", name:"Feta Cheese",        qty:"250", unit:"g",    unitPrice:"0.028", total:"7.00",  priceSource:"direct"     },
-  { id:"i13", name:"Tomatoes",           qty:"1.0", unit:"kg",   unitPrice:"2.20",  total:"2.20",  priceSource:"direct"     },
-  { id:"i14", name:"Cucumber",           qty:"500", unit:"g",    unitPrice:"1.80",  total:"0.90",  priceSource:"direct"     },
-  { id:"i15", name:"Avocado",            qty:"4",   unit:"pcs",  unitPrice:"1.20",  total:"4.80",  priceSource:"direct"     },
-  // Transportation cost entered as a regular item row — detected by name and surfaced in Paid Calculations
-  { id:"i16", name:"Transportation Cost", qty:"1",  unit:"trip", unitPrice:"30",    total:"30.00", priceSource:"direct"     },
+  { id:"i1",  name:"Chicken Breast",     qty:"2.5", unit:"kg",   unitPrice:"1.67",  total:"4.18",  purchaseQty:"3",   amountPaid:"5.00", priceSource:"calculated", primary:"Food & Dining",        sub:"Proteins"            },
+  { id:"i2",  name:"Brown Rice",         qty:"1.0", unit:"kg",   unitPrice:"2.80",  total:"2.80",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Grains & Staples"    },
+  { id:"i3",  name:"Mixed Vegetables",   qty:"1.5", unit:"kg",   unitPrice:"3.20",  total:"4.80",  purchaseQty:"2",   amountPaid:"6.40", priceSource:"calculated", primary:"Food & Dining",        sub:"Vegetables"          },
+  { id:"i4",  name:"Olive Oil",          qty:"250", unit:"ml",   unitPrice:"0.012", total:"3.00",  purchaseQty:"250", amountPaid:"3.00", priceSource:"calculated", primary:"Food & Dining",        sub:"Oils & Fats"         },
+  { id:"i5",  name:"Garlic",             qty:"50",  unit:"g",    unitPrice:"0.04",  total:"2.00",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Vegetables"          },
+  { id:"i6",  name:"Lemon",              qty:"3",   unit:"pcs",  unitPrice:"0.50",  total:"1.50",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Fruits"              },
+  { id:"i7",  name:"Herbs & Spices",     qty:"30",  unit:"g",    unitPrice:"0.20",  total:"6.00",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Spices & Herbs"      },
+  { id:"i8",  name:"Quinoa",             qty:"500", unit:"g",    unitPrice:"0.012", total:"6.00",  purchaseQty:"500", amountPaid:"6.00", priceSource:"calculated", primary:"Food & Dining",        sub:"Grains & Staples"    },
+  { id:"i9",  name:"Seasonal Greens",    qty:"800", unit:"g",    unitPrice:"0.004", total:"3.20",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Vegetables"          },
+  { id:"i10", name:"Greek Yogurt",       qty:"500", unit:"ml",   unitPrice:"0.008", total:"4.00",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Dairy & Eggs"        },
+  { id:"i11", name:"Almonds",            qty:"200", unit:"g",    unitPrice:"0.025", total:"5.00",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Nuts & Seeds"        },
+  { id:"i12", name:"Feta Cheese",        qty:"250", unit:"g",    unitPrice:"0.028", total:"7.00",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Dairy & Eggs"        },
+  { id:"i13", name:"Tomatoes",           qty:"1.0", unit:"kg",   unitPrice:"2.20",  total:"2.20",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Vegetables"          },
+  { id:"i14", name:"Cucumber",           qty:"500", unit:"g",    unitPrice:"1.80",  total:"0.90",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Vegetables"          },
+  { id:"i15", name:"Avocado",            qty:"4",   unit:"pcs",  unitPrice:"1.20",  total:"4.80",  priceSource:"direct",                                             primary:"Food & Dining",        sub:"Fruits"              },
+  { id:"i16", name:"Transportation Cost", qty:"1",  unit:"trip", unitPrice:"30",    total:"30.00", priceSource:"direct",                                             primary:"Transport & Logistics", sub:"Transportation"      },
 ];
 
 const COST_BREAKDOWN = [
@@ -116,6 +130,145 @@ const TIPS = [
   "Seasonal produce is usually 30–40% cheaper and fresher.",
   "Simplify recipes to reduce prep time and labour overhead costs.",
 ];
+
+/* ── Category taxonomy ──────────────────────────────────────────────────── */
+const CATEGORY_TAXONOMY: Record<string, Record<string, string[]>> = {
+  "Food & Dining": {
+    "Grains & Staples":    ["Rice","Brown Rice","White Rice","Dal","Lentils","Wheat Flour","Oats","Quinoa","Pasta","Bread","Noodle"],
+    "Proteins":            ["Chicken","Chicken Breast","Beef","Lamb","Mutton","Fish","Egg","Eggs","Shrimp","Prawn","Tofu","Duck"],
+    "Vegetables":          ["Tomato","Tomatoes","Onion","Garlic","Spinach","Carrot","Potato","Broccoli","Cucumber","Bell Pepper","Mushroom","Cabbage","Eggplant","Mixed Vegetables","Seasonal Greens","Pumpkin","Bean"],
+    "Dairy & Eggs":        ["Milk","Butter","Cheese","Feta Cheese","Yogurt","Greek Yogurt","Cream","Paneer"],
+    "Oils & Fats":         ["Olive Oil","Sunflower Oil","Coconut Oil","Mustard Oil","Vegetable Oil","Ghee"],
+    "Fruits":              ["Banana","Apple","Lemon","Mango","Orange","Avocado","Strawberry","Grape","Pineapple","Watermelon"],
+    "Spices & Herbs":      ["Turmeric","Cumin","Coriander","Chili Powder","Salt","Black Pepper","Ginger","Cinnamon","Cardamom","Bay Leaf","Herbs & Spices","Paprika","Oregano","Basil"],
+    "Nuts & Seeds":        ["Almonds","Cashews","Sesame Seeds","Sunflower Seeds","Walnuts","Peanuts","Chia Seeds","Flax Seeds"],
+    "Condiments & Sauces": ["Sugar","Honey","Soy Sauce","Tomato Sauce","Ketchup","Vinegar","Chili Sauce","Fish Sauce"],
+  },
+  "Transport & Logistics": {
+    "Transportation": ["Transportation Cost","Transport Cost","Delivery Fee","Freight","Delivery Charge","Rickshaw","CNG"],
+  },
+};
+
+function assignCategory(name: string): { primary: string; sub: string } | null {
+  const n = name.toLowerCase().trim();
+  for (const [primary, subs] of Object.entries(CATEGORY_TAXONOMY)) {
+    for (const [sub, items] of Object.entries(subs)) {
+      if (items.some(item => {
+        const il = item.toLowerCase();
+        return il === n || n.includes(il) || il.includes(n);
+      })) {
+        return { primary, sub };
+      }
+    }
+  }
+  if (n.includes("transport") || n.includes("deliver") || n.includes("freight")) {
+    return { primary: "Transport & Logistics", sub: "Transportation" };
+  }
+  return null;
+}
+
+/* ── Ingredient database (semantic search) ──────────────────────────────── */
+const INGREDIENT_DB: IngredientSuggestion[] = [
+  // Proteins
+  { id:"ing-1",  name:"Chicken Breast",     emoji:"🍗", primary:"Food & Dining", sub:"Proteins",           tags:["poultry","meat","hen","broiler","murgi"],          unit:"kg",   unitPrice:"180", bg:"bg-orange-100" },
+  { id:"ing-2",  name:"Beef",               emoji:"🥩", primary:"Food & Dining", sub:"Proteins",           tags:["meat","red meat","cow","goru","mangsho"],          unit:"kg",   unitPrice:"350", bg:"bg-red-100"    },
+  { id:"ing-3",  name:"Fish",               emoji:"🐟", primary:"Food & Dining", sub:"Proteins",           tags:["seafood","salmon","tilapia","rui","katla","mach"], unit:"kg",   unitPrice:"200", bg:"bg-blue-100"   },
+  { id:"ing-4",  name:"Eggs",               emoji:"🥚", primary:"Food & Dining", sub:"Proteins",           tags:["egg","dim","protein"],                             unit:"pcs",  unitPrice:"12",  bg:"bg-yellow-100" },
+  { id:"ing-5",  name:"Shrimp",             emoji:"🦐", primary:"Food & Dining", sub:"Proteins",           tags:["seafood","prawn","chingri","shellfish"],           unit:"kg",   unitPrice:"450", bg:"bg-pink-100"   },
+  { id:"ing-6",  name:"Tofu",               emoji:"🫘", primary:"Food & Dining", sub:"Proteins",           tags:["vegetarian","soy","protein","vegan"],              unit:"kg",   unitPrice:"120", bg:"bg-slate-100"  },
+  { id:"ing-7",  name:"Lamb",               emoji:"🥩", primary:"Food & Dining", sub:"Proteins",           tags:["mutton","red meat","khashi","sheep","mangsho"],    unit:"kg",   unitPrice:"550", bg:"bg-amber-100"  },
+  { id:"ing-8",  name:"Duck",               emoji:"🦆", primary:"Food & Dining", sub:"Proteins",           tags:["poultry","bird","hansh"],                          unit:"kg",   unitPrice:"280", bg:"bg-emerald-100"},
+  // Vegetables
+  { id:"ing-9",  name:"Tomato",             emoji:"🍅", primary:"Food & Dining", sub:"Vegetables",         tags:["red","salad","sauce","tomatoes"],                  unit:"kg",   unitPrice:"60",  bg:"bg-red-100"    },
+  { id:"ing-10", name:"Onion",              emoji:"🧅", primary:"Food & Dining", sub:"Vegetables",         tags:["peyaj","bulb","allium"],                           unit:"kg",   unitPrice:"40",  bg:"bg-purple-100" },
+  { id:"ing-11", name:"Garlic",             emoji:"🧄", primary:"Food & Dining", sub:"Vegetables",         tags:["rasun","allium","flavoring","spice"],              unit:"g",    unitPrice:"2",   bg:"bg-amber-100"  },
+  { id:"ing-12", name:"Spinach",            emoji:"🥬", primary:"Food & Dining", sub:"Vegetables",         tags:["palak","leafy green","iron","saag"],               unit:"g",    unitPrice:"0.5", bg:"bg-green-100"  },
+  { id:"ing-13", name:"Carrot",             emoji:"🥕", primary:"Food & Dining", sub:"Vegetables",         tags:["gajar","root","orange"],                           unit:"kg",   unitPrice:"50",  bg:"bg-orange-100" },
+  { id:"ing-14", name:"Potato",             emoji:"🥔", primary:"Food & Dining", sub:"Vegetables",         tags:["aloo","starch","root","carb"],                     unit:"kg",   unitPrice:"30",  bg:"bg-stone-100"  },
+  { id:"ing-15", name:"Broccoli",           emoji:"🥦", primary:"Food & Dining", sub:"Vegetables",         tags:["green","cruciferous","fiber"],                     unit:"kg",   unitPrice:"80",  bg:"bg-green-100"  },
+  { id:"ing-16", name:"Cucumber",           emoji:"🥒", primary:"Food & Dining", sub:"Vegetables",         tags:["shesha","salad","cooling"],                        unit:"kg",   unitPrice:"40",  bg:"bg-green-100"  },
+  { id:"ing-17", name:"Bell Pepper",        emoji:"🫑", primary:"Food & Dining", sub:"Vegetables",         tags:["capsicum","colorful","vitamin c"],                 unit:"pcs",  unitPrice:"30",  bg:"bg-red-100"    },
+  { id:"ing-18", name:"Mushroom",           emoji:"🍄", primary:"Food & Dining", sub:"Vegetables",         tags:["fungi","umami","moshroom"],                        unit:"g",    unitPrice:"1.5", bg:"bg-stone-100"  },
+  { id:"ing-19", name:"Cabbage",            emoji:"🥬", primary:"Food & Dining", sub:"Vegetables",         tags:["bandha kopi","leafy","coleslaw"],                  unit:"kg",   unitPrice:"25",  bg:"bg-green-100"  },
+  { id:"ing-20", name:"Eggplant",           emoji:"🍆", primary:"Food & Dining", sub:"Vegetables",         tags:["brinjal","begun","aubergine","purple"],            unit:"kg",   unitPrice:"40",  bg:"bg-purple-100" },
+  { id:"ing-21", name:"Mixed Vegetables",   emoji:"🥗", primary:"Food & Dining", sub:"Vegetables",         tags:["salad","mixed","assorted","sabji"],                unit:"kg",   unitPrice:"50",  bg:"bg-green-100"  },
+  // Grains & Staples
+  { id:"ing-22", name:"Brown Rice",         emoji:"🍚", primary:"Food & Dining", sub:"Grains & Staples",   tags:["rice","chawal","carb","wholegrain"],               unit:"kg",   unitPrice:"80",  bg:"bg-amber-100"  },
+  { id:"ing-23", name:"White Rice",         emoji:"🍚", primary:"Food & Dining", sub:"Grains & Staples",   tags:["rice","chawal","carb","polished","chaler"],        unit:"kg",   unitPrice:"65",  bg:"bg-amber-50"   },
+  { id:"ing-24", name:"Wheat Flour",        emoji:"🌾", primary:"Food & Dining", sub:"Grains & Staples",   tags:["atta","flour","bread","roti","baking"],            unit:"kg",   unitPrice:"45",  bg:"bg-yellow-100" },
+  { id:"ing-25", name:"Oats",               emoji:"🌾", primary:"Food & Dining", sub:"Grains & Staples",   tags:["cereal","breakfast","fiber","porridge"],           unit:"g",    unitPrice:"0.5", bg:"bg-amber-100"  },
+  { id:"ing-26", name:"Quinoa",             emoji:"🌾", primary:"Food & Dining", sub:"Grains & Staples",   tags:["superfood","protein grain","seed"],                unit:"g",    unitPrice:"1",   bg:"bg-lime-100"   },
+  { id:"ing-27", name:"Pasta",              emoji:"🍝", primary:"Food & Dining", sub:"Grains & Staples",   tags:["noodle","italian","carb","macaroni"],              unit:"g",    unitPrice:"0.5", bg:"bg-yellow-100" },
+  { id:"ing-28", name:"Bread",              emoji:"🍞", primary:"Food & Dining", sub:"Grains & Staples",   tags:["loaf","bakery","toast","pauruti"],                 unit:"pcs",  unitPrice:"40",  bg:"bg-amber-100"  },
+  { id:"ing-29", name:"Lentils",            emoji:"🫘", primary:"Food & Dining", sub:"Grains & Staples",   tags:["dal","masoor","legume","protein","mung"],          unit:"g",    unitPrice:"0.3", bg:"bg-orange-100" },
+  // Dairy & Eggs
+  { id:"ing-30", name:"Milk",               emoji:"🥛", primary:"Food & Dining", sub:"Dairy & Eggs",       tags:["doodh","liquid","calcium","protein"],              unit:"L",    unitPrice:"65",  bg:"bg-blue-50"    },
+  { id:"ing-31", name:"Butter",             emoji:"🧈", primary:"Food & Dining", sub:"Dairy & Eggs",       tags:["makhon","fat","baking","spread"],                  unit:"g",    unitPrice:"1.2", bg:"bg-yellow-100" },
+  { id:"ing-32", name:"Cheese",             emoji:"🧀", primary:"Food & Dining", sub:"Dairy & Eggs",       tags:["paneer","dairy","calcium"],                        unit:"g",    unitPrice:"1.5", bg:"bg-yellow-100" },
+  { id:"ing-33", name:"Greek Yogurt",       emoji:"🫙", primary:"Food & Dining", sub:"Dairy & Eggs",       tags:["doi","probiotic","dairy","tangy","curd"],          unit:"ml",   unitPrice:"0.8", bg:"bg-blue-50"    },
+  { id:"ing-34", name:"Cream",              emoji:"🥛", primary:"Food & Dining", sub:"Dairy & Eggs",       tags:["heavy cream","fat","baking","malai"],              unit:"ml",   unitPrice:"1",   bg:"bg-slate-50"   },
+  // Oils & Fats
+  { id:"ing-35", name:"Olive Oil",          emoji:"🫒", primary:"Food & Dining", sub:"Oils & Fats",        tags:["fat","cooking oil","healthy","jaitun"],            unit:"ml",   unitPrice:"1",   bg:"bg-green-100"  },
+  { id:"ing-36", name:"Sunflower Oil",      emoji:"🌻", primary:"Food & Dining", sub:"Oils & Fats",        tags:["cooking oil","neutral","fat","tel"],               unit:"ml",   unitPrice:"0.4", bg:"bg-yellow-100" },
+  { id:"ing-37", name:"Mustard Oil",        emoji:"🌿", primary:"Food & Dining", sub:"Oils & Fats",        tags:["sarson tel","cooking oil","pungent","sorisha"],    unit:"ml",   unitPrice:"0.5", bg:"bg-yellow-100" },
+  { id:"ing-38", name:"Coconut Oil",        emoji:"🥥", primary:"Food & Dining", sub:"Oils & Fats",        tags:["narikel tel","tropical","fat","baking"],           unit:"ml",   unitPrice:"0.8", bg:"bg-amber-50"   },
+  // Fruits
+  { id:"ing-39", name:"Banana",             emoji:"🍌", primary:"Food & Dining", sub:"Fruits",             tags:["kola","tropical","potassium","sweet"],             unit:"pcs",  unitPrice:"10",  bg:"bg-yellow-100" },
+  { id:"ing-40", name:"Apple",              emoji:"🍎", primary:"Food & Dining", sub:"Fruits",             tags:["fiber","sweet","snack","aapel"],                   unit:"pcs",  unitPrice:"25",  bg:"bg-red-100"    },
+  { id:"ing-41", name:"Lemon",              emoji:"🍋", primary:"Food & Dining", sub:"Fruits",             tags:["lebu","citrus","sour","vitamin c"],                unit:"pcs",  unitPrice:"8",   bg:"bg-yellow-100" },
+  { id:"ing-42", name:"Mango",              emoji:"🥭", primary:"Food & Dining", sub:"Fruits",             tags:["aam","tropical","sweet","vitamin a"],              unit:"pcs",  unitPrice:"30",  bg:"bg-orange-100" },
+  { id:"ing-43", name:"Orange",             emoji:"🍊", primary:"Food & Dining", sub:"Fruits",             tags:["komola","citrus","vitamin c","juice"],             unit:"pcs",  unitPrice:"20",  bg:"bg-orange-100" },
+  { id:"ing-44", name:"Avocado",            emoji:"🥑", primary:"Food & Dining", sub:"Fruits",             tags:["healthy fat","creamy","omega3"],                   unit:"pcs",  unitPrice:"80",  bg:"bg-green-100"  },
+  { id:"ing-45", name:"Strawberry",         emoji:"🍓", primary:"Food & Dining", sub:"Fruits",             tags:["berry","antioxidant","sweet"],                     unit:"g",    unitPrice:"2",   bg:"bg-red-100"    },
+  // Spices & Herbs
+  { id:"ing-46", name:"Turmeric",           emoji:"🌿", primary:"Food & Dining", sub:"Spices & Herbs",     tags:["halud","yellow","haldi","anti-inflammatory"],      unit:"g",    unitPrice:"0.5", bg:"bg-yellow-100" },
+  { id:"ing-47", name:"Cumin",              emoji:"🌿", primary:"Food & Dining", sub:"Spices & Herbs",     tags:["jeera","zira","aromatic","spice"],                 unit:"g",    unitPrice:"0.6", bg:"bg-amber-100"  },
+  { id:"ing-48", name:"Coriander",          emoji:"🌿", primary:"Food & Dining", sub:"Spices & Herbs",     tags:["dhania","herb","garnish","cilantro"],              unit:"g",    unitPrice:"0.3", bg:"bg-green-100"  },
+  { id:"ing-49", name:"Chili Powder",       emoji:"🌶️",  primary:"Food & Dining", sub:"Spices & Herbs",    tags:["morich","hot","spicy","red pepper","mirch"],      unit:"g",    unitPrice:"0.8", bg:"bg-red-100"    },
+  { id:"ing-50", name:"Salt",               emoji:"🧂", primary:"Food & Dining", sub:"Spices & Herbs",     tags:["noon","seasoning","mineral","sodium"],             unit:"g",    unitPrice:"0.05",bg:"bg-slate-100"  },
+  { id:"ing-51", name:"Black Pepper",       emoji:"🌿", primary:"Food & Dining", sub:"Spices & Herbs",     tags:["golmorich","peppercorn","spice","seasoning"],      unit:"g",    unitPrice:"1",   bg:"bg-slate-100"  },
+  { id:"ing-52", name:"Ginger",             emoji:"🫚", primary:"Food & Dining", sub:"Spices & Herbs",     tags:["ada","root","aromatic","anti-nausea"],             unit:"g",    unitPrice:"0.4", bg:"bg-yellow-100" },
+  { id:"ing-53", name:"Cinnamon",           emoji:"🌿", primary:"Food & Dining", sub:"Spices & Herbs",     tags:["darchini","sweet spice","baking","aromatic"],      unit:"g",    unitPrice:"1.5", bg:"bg-amber-100"  },
+  { id:"ing-54", name:"Herbs & Spices",     emoji:"🌿", primary:"Food & Dining", sub:"Spices & Herbs",     tags:["mixed","herb","masala","blend","moshla"],          unit:"g",    unitPrice:"0.5", bg:"bg-green-100"  },
+  // Nuts & Seeds
+  { id:"ing-55", name:"Almonds",            emoji:"🥜", primary:"Food & Dining", sub:"Nuts & Seeds",       tags:["badam","nut","healthy fat","protein"],             unit:"g",    unitPrice:"2",   bg:"bg-amber-100"  },
+  { id:"ing-56", name:"Cashews",            emoji:"🥜", primary:"Food & Dining", sub:"Nuts & Seeds",       tags:["kaju","nut","creamy","protein"],                   unit:"g",    unitPrice:"3",   bg:"bg-yellow-100" },
+  { id:"ing-57", name:"Sesame Seeds",       emoji:"🌾", primary:"Food & Dining", sub:"Nuts & Seeds",       tags:["til","teel","oil","calcium"],                      unit:"g",    unitPrice:"0.5", bg:"bg-amber-50"   },
+  { id:"ing-58", name:"Peanuts",            emoji:"🥜", primary:"Food & Dining", sub:"Nuts & Seeds",       tags:["cheenabadam","groundnut","cheap protein"],         unit:"g",    unitPrice:"0.3", bg:"bg-amber-100"  },
+  // Condiments & Sauces
+  { id:"ing-59", name:"Sugar",              emoji:"🍬", primary:"Food & Dining", sub:"Condiments & Sauces",tags:["chini","sweet","carb","baking"],                   unit:"g",    unitPrice:"0.06",bg:"bg-pink-100"   },
+  { id:"ing-60", name:"Honey",              emoji:"🍯", primary:"Food & Dining", sub:"Condiments & Sauces",tags:["modhu","natural sweet","sugar alternative"],       unit:"ml",   unitPrice:"1.2", bg:"bg-amber-100"  },
+  { id:"ing-61", name:"Soy Sauce",          emoji:"🫙", primary:"Food & Dining", sub:"Condiments & Sauces",tags:["condiment","umami","asian","dark sauce"],          unit:"ml",   unitPrice:"0.5", bg:"bg-slate-100"  },
+  { id:"ing-62", name:"Tomato Sauce",       emoji:"🍅", primary:"Food & Dining", sub:"Condiments & Sauces",tags:["ketchup","condiment","base","paste"],              unit:"ml",   unitPrice:"0.4", bg:"bg-red-100"    },
+  // Transport & Logistics
+  { id:"ing-63", name:"Transportation Cost",emoji:"🚗", primary:"Transport & Logistics", sub:"Transportation", tags:["delivery","freight","transport","travel","trip","rickshaw","cng","uber"], unit:"trip", unitPrice:"30", bg:"bg-slate-100" },
+];
+
+function searchIngredients(query: string): IngredientSuggestion[] {
+  if (!query.trim()) return INGREDIENT_DB.slice(0, 12);
+  const q = query.toLowerCase().trim();
+  return INGREDIENT_DB
+    .map(item => {
+      let score = 0;
+      const n = item.name.toLowerCase();
+      if (n === q)              score += 100;
+      else if (n.startsWith(q)) score += 80;
+      else if (n.includes(q))   score += 60;
+      for (const tag of item.tags) {
+        const t = tag.toLowerCase();
+        if (t === q)            score += 50;
+        else if (t.includes(q)) score += 30;
+        else if (q.includes(t) && t.length > 2) score += 20;
+      }
+      if (item.sub.toLowerCase().includes(q))     score += 15;
+      if (item.primary.toLowerCase().includes(q)) score += 10;
+      return { item, score };
+    })
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12)
+    .map(x => x.item);
+}
 
 /* ── CSV helpers ─────────────────────────────────────────────────────────── */
 const CSV_HEADERS = ["Date", "Item Name", "Qty", "Unit", "Unit Price", "Purchase Qty", "Amount Paid"];
@@ -216,7 +369,8 @@ function parseCsv(text: string): IngredientItem[] | null {
 
     const displayQty = finalQty === 1 && !qty ? "1" : (qty || String(finalQty));
 
-    return { id: `csv-${i}`, name, date: date || undefined, qty: displayQty, unit, unitPrice, total, purchaseQty, amountPaid, priceSource };
+    const cat = assignCategory(name);
+    return { id: `csv-${i}`, name, date: date || undefined, qty: displayQty, unit, unitPrice, total, purchaseQty, amountPaid, priceSource, ...(cat ?? {}) };
   }).filter(it => it.name);
 }
 
@@ -421,6 +575,278 @@ function MealTypeCountGrid({
   );
 }
 
+/* ── Ingredient search modal (add + edit) ───────────────────────────────── */
+function IngredientSearchModal({
+  open, onClose, onAdd, editItem, onEdit,
+}: {
+  open:       boolean;
+  onClose:    () => void;
+  onAdd:      (item: IngredientItem) => void;
+  editItem?:  IngredientItem;
+  onEdit?:    (item: IngredientItem) => void;
+}) {
+  const sym      = PAYMENT_CONFIG.symbol;
+  const isEdit   = !!editItem;
+
+  const [query,       setQuery]       = useState("");
+  const [selected,    setSelected]    = useState<IngredientSuggestion | null>(null);
+  const [qty,         setQty]         = useState("1");
+  const [unit,        setUnit]        = useState("");
+  const [unitPrice,   setUnitPrice]   = useState("");
+  const [purchaseQty, setPurchaseQty] = useState("");
+  const [amountPaid,  setAmountPaid]  = useState("");
+  const [date,        setDate]        = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setQuery(""); setSelected(null);
+      setQty("1"); setUnit(""); setUnitPrice("");
+      setPurchaseQty(""); setAmountPaid(""); setDate("");
+      return;
+    }
+    if (editItem) {
+      // Edit mode — pre-fill all fields; synthesize a suggestion from the DB or make a stub
+      const dbMatch = INGREDIENT_DB.find(
+        ing => ing.name.toLowerCase() === editItem.name.toLowerCase()
+      ) ?? null;
+      const stub: IngredientSuggestion = dbMatch ?? {
+        id:        `stub-${editItem.id}`,
+        name:      editItem.name,
+        emoji:     "📦",
+        primary:   editItem.primary ?? "Food & Dining",
+        sub:       editItem.sub     ?? "Other",
+        tags:      [],
+        unit:      editItem.unit,
+        unitPrice: editItem.unitPrice,
+        bg:        "bg-slate-100",
+      };
+      setSelected(stub);
+      setQty(editItem.qty);
+      setUnit(editItem.unit);
+      setUnitPrice(editItem.unitPrice);
+      setPurchaseQty(editItem.purchaseQty ?? "");
+      setAmountPaid(editItem.amountPaid   ?? "");
+      setDate(editItem.date ?? new Date().toISOString().split("T")[0]);
+    } else {
+      setDate(new Date().toISOString().split("T")[0]);
+    }
+  }, [open, editItem]);
+
+  const results = searchIngredients(query);
+
+  function handleSelect(ing: IngredientSuggestion) {
+    setSelected(ing);
+    setUnit(ing.unit);
+    setUnitPrice(ing.unitPrice);
+  }
+
+  function handleAdd() {
+    if (!selected) return;
+    let finalUnitPrice = unitPrice;
+    let priceSource: IngredientItem["priceSource"] = "direct";
+    const pQty  = parseFloat(purchaseQty) || 0;
+    const pPaid = parseFloat(amountPaid.replace(/[৳$,]/g, "")) || 0;
+    if ((!finalUnitPrice || parseFloat(finalUnitPrice) === 0) && pQty > 0 && pPaid > 0) {
+      finalUnitPrice = (pPaid / pQty).toFixed(4);
+      priceSource    = "calculated";
+    }
+    const finalQty = parseFloat(qty) || 1;
+    const total    = (finalQty * parseFloat(finalUnitPrice || "0")).toFixed(2);
+    const payload: IngredientItem = {
+      id:          isEdit ? editItem!.id : `manual-${Date.now()}`,
+      name:        selected.name,
+      primary:     selected.primary,
+      sub:         selected.sub,
+      date:        date || undefined,
+      qty:         String(finalQty),
+      unit,
+      unitPrice:   finalUnitPrice,
+      total,
+      purchaseQty: purchaseQty || undefined,
+      amountPaid:  pPaid > 0 ? pPaid.toFixed(2) : undefined,
+      priceSource,
+    };
+    if (isEdit) {
+      onEdit?.(payload);
+    } else {
+      onAdd(payload);
+    }
+  }
+
+  const liveTotal = (parseFloat(qty) || 0) * (parseFloat(unitPrice) || 0);
+
+  const modalTitle = isEdit
+    ? `Edit — ${editItem!.name}`
+    : selected ? `Add ${selected.name}` : "Search Ingredients";
+  const modalDesc = isEdit
+    ? `${editItem!.primary ?? "Food & Dining"} · ${editItem!.sub ?? "Other"}`
+    : selected
+      ? `${selected.primary} · ${selected.sub}`
+      : "Type to search, or browse popular ingredients below";
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={modalTitle}
+      description={modalDesc}
+      size="lg"
+      footer={
+        selected ? (
+          <>
+            {!isEdit && (
+              <Button variant="secondary" size="sm" icon={ArrowLeft} onClick={() => setSelected(null)}>
+                Change
+              </Button>
+            )}
+            <Button size="sm" onClick={handleAdd}>
+              {isEdit ? "Save Changes" : "Add to Ingredients"}
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+        )
+      }
+    >
+      {!selected ? (
+        /* ── Step 1: Search & Pick ── */
+        <div className="flex flex-col gap-4">
+          <SearchBox
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by name, category, or Bengali keyword…"
+            size="md"
+            fullWidth
+          />
+          <div>
+            <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              {query.trim() ? `Results (${results.length})` : "Popular Ingredients"}
+            </p>
+            {results.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-center">
+                <span className="text-4xl">🔍</span>
+                <p className="text-sm font-medium text-slate-600">No ingredients found</p>
+                <p className="text-xs text-slate-400">Try a different name or category</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {results.map(ing => (
+                  <motion.button
+                    key={ing.id}
+                    whileHover={{ scale: 1.04, y: -2 }}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                    onClick={() => handleSelect(ing)}
+                    className={`flex flex-col items-center rounded-xl border-2 border-transparent ${ing.bg} p-3 text-center transition-colors hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400`}
+                  >
+                    <span className="text-3xl leading-none mb-1.5">{ing.emoji}</span>
+                    <p className="text-[11px] font-semibold text-slate-800 leading-tight">{ing.name}</p>
+                    <p className="text-[9px] text-slate-400 mt-0.5 truncate w-full text-center">{ing.sub}</p>
+                    <p className="mt-1 text-[10px] font-semibold text-emerald-600">
+                      {sym}{ing.unitPrice}/{ing.unit}
+                    </p>
+                  </motion.button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ── Step 2: Fill Details ── */
+        <div className="flex flex-col gap-4">
+          {/* Selected ingredient header */}
+          <div className={`flex items-center gap-3 rounded-xl border-2 border-indigo-200 ${selected.bg} px-4 py-3`}>
+            <span className="text-3xl leading-none">{selected.emoji}</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-slate-900">{selected.name}</p>
+              <p className="text-[11px] text-slate-500">{selected.primary} · {selected.sub}</p>
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-600 shrink-0">
+              est. {sym}{selected.unitPrice}/{selected.unit}
+            </span>
+          </div>
+
+          {/* Form fields */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <TextField
+              label="Qty"
+              type="number"
+              min="0"
+              step="any"
+              value={qty}
+              onChange={e => setQty(e.target.value)}
+              placeholder="1"
+              size="sm"
+              fullWidth
+            />
+            <TextField
+              label="Unit"
+              value={unit}
+              onChange={e => setUnit(e.target.value)}
+              placeholder="kg / g / pcs / L"
+              size="sm"
+              fullWidth
+            />
+            <TextField
+              label={`Unit Price (${sym})`}
+              type="number"
+              min="0"
+              step="any"
+              value={unitPrice}
+              onChange={e => setUnitPrice(e.target.value)}
+              placeholder="0.00"
+              hint="Leave blank to auto-calculate"
+              size="sm"
+              fullWidth
+            />
+            <TextField
+              label="Purchase Qty"
+              type="number"
+              min="0"
+              step="any"
+              value={purchaseQty}
+              onChange={e => setPurchaseQty(e.target.value)}
+              placeholder="optional"
+              size="sm"
+              fullWidth
+            />
+            <TextField
+              label={`Amount Paid (${sym})`}
+              type="number"
+              min="0"
+              step="any"
+              value={amountPaid}
+              onChange={e => setAmountPaid(e.target.value)}
+              placeholder="optional"
+              hint="Fills unit price if blank above"
+              size="sm"
+              fullWidth
+            />
+            <TextField
+              label="Date"
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              size="sm"
+              fullWidth
+            />
+          </div>
+
+          {/* Live total preview */}
+          {liveTotal > 0 && (
+            <div className="flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
+              <span className="text-xs text-indigo-600">
+                {qty || "1"} {unit} × {sym}{unitPrice} =
+              </span>
+              <span className="text-sm font-bold text-indigo-700">{sym}{liveTotal.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 /* ── Page ───────────────────────────────────────────────────────────────── */
 export default function CostGenerationPage() {
   const { orgSlug } = useParams<{ orgSlug: string }>();
@@ -437,12 +863,49 @@ export default function CostGenerationPage() {
     dinner:    7,
     snack:     3,
   });
-  // Pre-filled from org-scoped member count; user can override.
   const [activeMembers, setActiveMembers] = useState(() => getOrgActiveMembers(orgSlug));
+
+  // Category filter state
+  const [filterPrimary, setFilterPrimary] = useState<string>("all");
+  const [filterSub,     setFilterSub]     = useState<string>("all");
+  const [filterItem,    setFilterItem]    = useState<string>("all");
+
+  // Ingredient search / edit modal
+  const [searchOpen,   setSearchOpen]   = useState(false);
+  const [editingItem,  setEditingItem]  = useState<IngredientItem | null>(null);
 
   // Flat list of all items across all uploaded days
   const items    = uploads.flatMap(u => u.items);
   const uploaded = uploads.length > 0;
+
+  // Filter option lists — derived from actual items present in the table
+  const primaryOptions  = [...new Set(items.map(i => i.primary).filter((v): v is string => !!v))].sort();
+  const subOptions      = [...new Set(
+    items.filter(i => filterPrimary === "all" || i.primary === filterPrimary)
+         .map(i => i.sub).filter((v): v is string => !!v)
+  )].sort();
+  const itemNameOptions = [...new Set(
+    items.filter(i => {
+      if (filterPrimary !== "all" && i.primary !== filterPrimary) return false;
+      if (filterSub     !== "all" && i.sub     !== filterSub)     return false;
+      return true;
+    }).map(i => i.name)
+  )].sort();
+
+  const anyFilterActive = filterPrimary !== "all" || filterSub !== "all" || filterItem !== "all";
+
+  // Uploads with items filtered by the active category selections
+  const filteredUploads = uploads.map(upload => ({
+    ...upload,
+    items: upload.items.filter(item => {
+      if (filterPrimary !== "all" && item.primary !== filterPrimary) return false;
+      if (filterSub     !== "all" && item.sub     !== filterSub)     return false;
+      if (filterItem    !== "all" && item.name    !== filterItem)     return false;
+      return true;
+    }),
+  })).filter(u => u.items.length > 0);
+
+  const filteredItemCount = filteredUploads.flatMap(u => u.items).length;
 
   const sym        = PAYMENT_CONFIG.symbol;
   const mealsCount = Object.values(mealCounts).reduce((s, v) => s + v, 0);
@@ -540,6 +1003,33 @@ export default function CostGenerationPage() {
     );
   }
 
+  function updateItem(updated: IngredientItem) {
+    setUploads(prev =>
+      prev.map(u => ({
+        ...u,
+        items: u.items.map(it => it.id === updated.id ? updated : it),
+      }))
+    );
+  }
+
+  function addManualItem(item: IngredientItem) {
+    const today = new Date().toISOString().split("T")[0];
+    const date  = item.date || today;
+    setUploads(prev => {
+      if (prev.some(u => u.date === date)) {
+        return prev
+          .map(u => u.date === date
+            ? { ...u, items: [...u.items, { ...item, id: `${date}-m${Date.now()}` }] }
+            : u)
+          .sort((a, b) => a.date.localeCompare(b.date));
+      }
+      return [
+        ...prev,
+        { id: `manual-${date}`, date, filename: "Manual entry", source: "manual" as const, items: [{ ...item, id: `${date}-m${Date.now()}` }] },
+      ].sort((a, b) => a.date.localeCompare(b.date));
+    });
+  }
+
   const tabBase   = "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-colors";
   const tabActive = "bg-white text-indigo-700 shadow-sm";
   const tabInact  = "text-slate-500 hover:text-slate-700";
@@ -619,7 +1109,9 @@ export default function CostGenerationPage() {
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
                             {upload.source === "csv"
                               ? <TableProperties className="h-4 w-4 text-emerald-600" />
-                              : <FileText className="h-4 w-4 text-emerald-600" />}
+                              : upload.source === "manual"
+                              ? <Plus            className="h-4 w-4 text-indigo-600" />
+                              : <FileText        className="h-4 w-4 text-emerald-600" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -740,16 +1232,8 @@ export default function CostGenerationPage() {
             </div>
           </SlideUp>
 
-          {/* Step 3 — Extracted items table */}
-          <AnimatePresence>
-            {items.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.4 }}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-              >
+          {/* Step 3 — Ingredients table (always visible) */}
+          <SlideUp delay={0.08} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">3</div>
@@ -795,8 +1279,75 @@ export default function CostGenerationPage() {
                     >
                       Export
                     </Button>
-                    <Button variant="secondary" size="sm" icon={Plus}>Add Item</Button>
+                    <Button variant="secondary" size="sm" icon={Plus} onClick={() => setSearchOpen(true)}>Add Item</Button>
                   </div>
+                </div>
+
+                {items.length === 0 ? (
+                  /* ── Empty state ── */
+                  <div className="flex flex-col items-center gap-3 py-14 text-center">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                      <Plus className="h-6 w-6 text-slate-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-500">No ingredients yet</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Upload a receipt or CSV above, or add items manually
+                      </p>
+                    </div>
+                    <Button size="sm" icon={Plus} onClick={() => setSearchOpen(true)}>
+                      Add First Ingredient
+                    </Button>
+                  </div>
+                ) : (
+                <>
+                {/* ── Category filter bar ── */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/70 px-4 py-2.5">
+                  <Filter className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span className="text-[11px] font-semibold text-slate-500 mr-0.5">Filter:</span>
+
+                  <select
+                    value={filterPrimary}
+                    onChange={e => { setFilterPrimary(e.target.value); setFilterSub("all"); setFilterItem("all"); }}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="all">All Categories</option>
+                    {primaryOptions.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+
+                  <select
+                    value={filterSub}
+                    onChange={e => { setFilterSub(e.target.value); setFilterItem("all"); }}
+                    disabled={subOptions.length === 0}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40"
+                  >
+                    <option value="all">All Subcategories</option>
+                    {subOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+
+                  <select
+                    value={filterItem}
+                    onChange={e => setFilterItem(e.target.value)}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="all">All Items</option>
+                    {itemNameOptions.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+
+                  {anyFilterActive && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => { setFilterPrimary("all"); setFilterSub("all"); setFilterItem("all"); }}
+                        className="flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-600 hover:bg-indigo-100 transition-colors"
+                      >
+                        <X className="h-2.5 w-2.5" /> Clear
+                      </button>
+                      <span className="text-[10px] text-slate-400">
+                        {filteredItemCount} of {items.length} items
+                      </span>
+                    </>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto">
@@ -809,7 +1360,7 @@ export default function CostGenerationPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {[...uploads].sort((a, b) => a.date.localeCompare(b.date)).map(upload => {
+                      {filteredUploads.map(upload => {
                         const dayTotal = upload.items.reduce((s, it) => s + parseFloat(it.total || "0"), 0);
                         return (
                           <Fragment key={upload.id}>
@@ -844,7 +1395,12 @@ export default function CostGenerationPage() {
                                     {item.date ?? upload.date}
                                   </span>
                                 </td>
-                                <td className="px-4 py-2.5 font-medium text-slate-900">{item.name}</td>
+                                <td className="px-4 py-2.5">
+                                  <div className="font-medium text-slate-900">{item.name}</div>
+                                  {item.sub && (
+                                    <div className="text-[9px] text-slate-400 mt-0.5">{item.sub}</div>
+                                  )}
+                                </td>
                                 <td className="px-4 py-2.5 text-slate-600">{item.qty}</td>
                                 <td className="px-4 py-2.5 text-slate-500">{item.unit}</td>
                                 <td className="px-4 py-2.5">
@@ -868,18 +1424,30 @@ export default function CostGenerationPage() {
                                 </td>
                                 <td className="px-4 py-2.5 font-semibold text-slate-900">{fmt(item.total)}</td>
                                 <td className="px-4 py-2.5">
-                                  <motion.button
-                                    whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                                    type="button" onClick={() => removeItem(item.id)}
-                                    className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </motion.button>
+                                  <div className="flex items-center gap-0.5">
+                                    <motion.button
+                                      whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                                      type="button"
+                                      onClick={() => setEditingItem(item)}
+                                      className="rounded-lg p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 transition-colors"
+                                      aria-label={`Edit ${item.name}`}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </motion.button>
+                                    <motion.button
+                                      whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                                      type="button" onClick={() => removeItem(item.id)}
+                                      className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors"
+                                      aria-label={`Delete ${item.name}`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </motion.button>
+                                  </div>
                                 </td>
                               </motion.tr>
                             ))}
-                            {/* Day subtotal row (only shown when multiple days) */}
-                            {uploads.length > 1 && (
+                            {/* Day subtotal row (only shown when multiple days visible) */}
+                            {filteredUploads.length > 1 && (
                               <tr className="border-b border-indigo-100 bg-indigo-50/40">
                                 <td colSpan={7} className="px-4 py-1.5 text-right text-[10px] font-semibold text-indigo-500">
                                   {upload.date} subtotal
@@ -898,6 +1466,13 @@ export default function CostGenerationPage() {
                         <td className="px-4 py-2.5 font-bold text-slate-900">{fmt(totalAmount)}</td>
                         <td />
                       </tr>
+                      {anyFilterActive && (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-1.5 text-center text-[10px] text-slate-400">
+                            Showing {filteredItemCount} of {items.length} items · Total reflects all items
+                          </td>
+                        </tr>
+                      )}
                     </tfoot>
                   </table>
                 </div>
@@ -935,9 +1510,9 @@ export default function CostGenerationPage() {
                   <Button variant="secondary" size="sm" onClick={handleReset}>Reset</Button>
                   <Button size="sm" icon={Calculator}>Generate Cost Report</Button>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </>
+                )}
+          </SlideUp>
         </div>
 
         {/* Right sidebar */}
@@ -1211,6 +1786,15 @@ export default function CostGenerationPage() {
           </SlideIn>
         </div>
       </div>
+
+      {/* Ingredient add / edit modal */}
+      <IngredientSearchModal
+        open={searchOpen || !!editingItem}
+        onClose={() => { setSearchOpen(false); setEditingItem(null); }}
+        onAdd={item  => { addManualItem(item); setSearchOpen(false); }}
+        editItem={editingItem ?? undefined}
+        onEdit={item => { updateItem(item); setEditingItem(null); }}
+      />
     </div>
   );
 }
