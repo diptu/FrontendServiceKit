@@ -10,7 +10,7 @@ import {
   X, ArrowLeft, Filter, Pencil,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FadeIn, SlideUp, SlideIn, Modal, SearchBox, TextField } from "@/components/ui";
+import { FadeIn, SlideUp, SlideIn, Modal, SearchBox, TextField, AnimatedNumber } from "@/components/ui";
 import { Button } from "@/components/ui";
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
@@ -56,8 +56,25 @@ type MealTypeKey = "breakfast" | "lunch" | "dinner" | "snack";
 /* ── Payment configuration (mirrors Settings → Payment → Default Currency) ── */
 const PAYMENT_CONFIG = { code: "BDT", symbol: "৳" } as const;
 
+/* ── Named constants ────────────────────────────────────────────────────── */
+const PRIMARY_CAT_FOOD      = "Food & Dining"        as const;
+const PRIMARY_CAT_TRANSPORT = "Transport & Logistics" as const;
+const DEFAULT_SUB           = "Other"                 as const;
+const FILTER_ALL            = "all"                   as const;
+
+/* ── Framer Motion stagger variants for search results grid ─────────────── */
+const SEARCH_GRID_VARIANTS = {
+  hidden: {},
+  show:   { transition: { staggerChildren: 0.05, delayChildren: 0.02 } },
+} as const;
+
+const SEARCH_ITEM_VARIANTS = {
+  hidden: { opacity: 0, y: 12 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] as const } },
+};
+
 /** Format a number or numeric string with the payment currency symbol. */
-function fmt(n: number | string): string {
+function formatCurrency(n: number | string): string {
   const num = typeof n === "string" ? parseFloat(n) : n;
   return `${PAYMENT_CONFIG.symbol}${isNaN(num) ? "0.00" : num.toFixed(2)}`;
 }
@@ -164,7 +181,7 @@ function assignCategory(name: string): { primary: string; sub: string } | null {
     }
   }
   if (n.includes("transport") || n.includes("deliver") || n.includes("freight")) {
-    return { primary: "Transport & Logistics", sub: "Transportation" };
+    return { primary: PRIMARY_CAT_TRANSPORT, sub: "Transportation" };
   }
   return null;
 }
@@ -296,7 +313,7 @@ function getIngredientEmoji(name: string, sub?: string, primary?: string): strin
   const match = INGREDIENT_DB.find(ing => ing.name.toLowerCase() === name.toLowerCase());
   if (match) return match.emoji;
   if (sub && SUB_EMOJI_DEFAULTS[sub]) return SUB_EMOJI_DEFAULTS[sub];
-  if (primary === "Transport & Logistics") return "🚗";
+  if (primary === PRIMARY_CAT_TRANSPORT) return "🚗";
   return "📦";
 }
 
@@ -366,13 +383,13 @@ function parseCsv(text: string): IngredientItem[] | null {
 
     // Mode A: auto-calculate unit price from purchase qty + amount paid
     if ((!unitPrice || parseFloat(unitPrice) === 0) && rawPurchaseQty && rawAmountPaid) {
-      const pQty  = parseFloat(rawPurchaseQty);
-      const pPaid = parseFloat(rawAmountPaid.replace(/[৳$,]/g, ""));
-      if (pQty > 0) {
-        unitPrice   = (pPaid / pQty).toFixed(4);
+      const purchaseQuantity = parseFloat(rawPurchaseQty);
+      const purchaseAmount   = parseFloat(rawAmountPaid.replace(/[৳$,]/g, ""));
+      if (purchaseQuantity > 0) {
+        unitPrice   = (purchaseAmount / purchaseQuantity).toFixed(4);
         priceSource = "calculated";
         purchaseQty = rawPurchaseQty;
-        amountPaid  = pPaid.toFixed(2);
+        amountPaid  = purchaseAmount.toFixed(2);
       }
     }
 
@@ -446,7 +463,7 @@ function CsvUploadZone({
 }) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const sym = PAYMENT_CONFIG.symbol;
+  const currencySymbol= PAYMENT_CONFIG.symbol;
 
   const readFile = useCallback((file: File) => {
     if (!file.name.endsWith(".csv") && file.type !== "text/csv") {
@@ -528,7 +545,7 @@ function CsvUploadZone({
       {/* Pricing mode hint */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="flex items-start gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2.5">
-          <span className="mt-0.5 text-sm font-bold text-indigo-500 leading-none">{sym}</span>
+          <span className="mt-0.5 text-sm font-bold text-indigo-500 leading-none">{currencySymbol}</span>
           <div>
             <p className="text-[11px] font-semibold text-indigo-800">Direct Unit Price</p>
             <p className="mt-0.5 text-[10px] text-indigo-600 leading-relaxed">
@@ -551,9 +568,9 @@ function CsvUploadZone({
       <div className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2.5">
         <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
         <p className="text-[11px] text-slate-500 leading-relaxed">
-          Example: <strong>Chicken 3 kg</strong> for <strong>{sym}550</strong> → unit price = {sym}183.33/kg.
+          Example: <strong>Chicken 3 kg</strong> for <strong>{currencySymbol}550</strong> → unit price = {currencySymbol}183.33/kg.
           {" "}To include delivery charges, add a row: <strong>Item Name = "Transportation Cost"</strong>, Qty = 1, Unit = trip, Unit Price = 30 — it auto-appears in Paid Calculations.
-          {" "}Currency: <strong>{PAYMENT_CONFIG.code} ({sym})</strong> · configured in Payment Settings.
+          {" "}Currency: <strong>{PAYMENT_CONFIG.code} ({currencySymbol})</strong> · configured in Payment Settings.
         </p>
       </div>
     </div>
@@ -617,27 +634,29 @@ function IngredientSearchModal({
   customIngredients:   IngredientSuggestion[];
   onCustomIngredient?: (ing: IngredientSuggestion) => void;
 }) {
-  const sym      = PAYMENT_CONFIG.symbol;
+  const currencySymbol     = PAYMENT_CONFIG.symbol;
   const isEdit   = !!editItem;
 
   const [query,         setQuery]         = useState("");
   const [selected,      setSelected]      = useState<IngredientSuggestion | null>(null);
   const [isCustom,      setIsCustom]      = useState(false);
-  const [customPrimary, setCustomPrimary] = useState("Food & Dining");
-  const [customSub,     setCustomSub]     = useState("Other");
+  const [customPrimary, setCustomPrimary] = useState<string>(PRIMARY_CAT_FOOD);
+  const [customSub,     setCustomSub]     = useState<string>(DEFAULT_SUB);
   const [qty,           setQty]           = useState("1");
   const [unit,          setUnit]          = useState("");
   const [unitPrice,     setUnitPrice]     = useState("");
   const [purchaseQty,   setPurchaseQty]   = useState("");
   const [amountPaid,    setAmountPaid]    = useState("");
   const [date,          setDate]          = useState("");
+  const [priceError,    setPriceError]    = useState(false);
 
   useEffect(() => {
     if (!open) {
       setQuery(""); setSelected(null); setIsCustom(false);
-      setCustomPrimary("Food & Dining"); setCustomSub("Other");
+      setCustomPrimary(PRIMARY_CAT_FOOD); setCustomSub(DEFAULT_SUB);
       setQty("1"); setUnit(""); setUnitPrice("");
       setPurchaseQty(""); setAmountPaid(""); setDate("");
+      setPriceError(false);
       return;
     }
     if (editItem) {
@@ -649,8 +668,8 @@ function IngredientSearchModal({
         id:        `stub-${editItem.id}`,
         name:      editItem.name,
         emoji:     "📦",
-        primary:   editItem.primary ?? "Food & Dining",
-        sub:       editItem.sub     ?? "Other",
+        primary:   editItem.primary ?? PRIMARY_CAT_FOOD,
+        sub:       editItem.sub     ?? DEFAULT_SUB,
         tags:      [],
         unit:      editItem.unit,
         unitPrice: editItem.unitPrice,
@@ -681,8 +700,8 @@ function IngredientSearchModal({
     const name = query.trim();
     if (!name) return;
     const cat     = assignCategory(name);
-    const primary = cat?.primary ?? "Food & Dining";
-    const sub     = cat?.sub     ?? "Other";
+    const primary = cat?.primary ?? PRIMARY_CAT_FOOD;
+    const sub     = cat?.sub     ?? DEFAULT_SUB;
     setCustomPrimary(primary);
     setCustomSub(sub);
     setIsCustom(true);
@@ -704,14 +723,37 @@ function IngredientSearchModal({
 
   function handleAdd() {
     if (!selected) return;
-    let finalUnitPrice = unitPrice;
+    const hasUnitPrice   = parseFloat(unitPrice) > 0;
+    const hasPurchaseQty = parseFloat(purchaseQty) > 0;
+    const hasAmountPaid  = parseFloat(amountPaid.replace(/[৳$,]/g, "")) > 0;
+    const filledCount    = [hasUnitPrice, hasPurchaseQty, hasAmountPaid].filter(Boolean).length;
+    if (filledCount < 2) {
+      setPriceError(true);
+      return;
+    }
+    setPriceError(false);
     let priceSource: IngredientItem["priceSource"] = "direct";
-    const pQty  = parseFloat(purchaseQty) || 0;
-    const pPaid = parseFloat(amountPaid.replace(/[৳$,]/g, "")) || 0;
-    if ((!finalUnitPrice || parseFloat(finalUnitPrice) === 0) && pQty > 0 && pPaid > 0) {
-      finalUnitPrice = (pPaid / pQty).toFixed(4);
+    const purchaseQuantity = parseFloat(purchaseQty) || 0; // parsed from purchaseQty state
+    const purchaseAmount   = parseFloat(amountPaid.replace(/[৳$,]/g, "")) || 0;
+    const unitPriceVal     = parseFloat(unitPrice) || 0;
+
+    // Derive whichever of the 3 fields the user left blank
+    let finalUnitPrice   = unitPrice;
+    let finalPurchaseQty = purchaseQty;
+    let finalAmountPaid  = purchaseAmount;
+
+    if (unitPriceVal > 0 && purchaseQuantity > 0 && purchaseAmount === 0) {
+      // Unit Price + Purchase Qty → derive Amount Paid
+      finalAmountPaid = unitPriceVal * purchaseQuantity;
+    } else if (unitPriceVal > 0 && purchaseAmount > 0 && purchaseQuantity === 0) {
+      // Unit Price + Amount Paid → derive Purchase Qty
+      finalPurchaseQty = (purchaseAmount / unitPriceVal).toFixed(2);
+    } else if (purchaseAmount > 0 && purchaseQuantity > 0 && unitPriceVal === 0) {
+      // Amount Paid + Purchase Qty → derive Unit Price
+      finalUnitPrice = (purchaseAmount / purchaseQuantity).toFixed(4);
       priceSource    = "calculated";
     }
+
     const finalQty = parseFloat(qty) || 1;
     const total    = (finalQty * parseFloat(finalUnitPrice || "0")).toFixed(2);
     const payload: IngredientItem = {
@@ -725,8 +767,8 @@ function IngredientSearchModal({
       unit,
       unitPrice:   finalUnitPrice,
       total,
-      purchaseQty: purchaseQty || undefined,
-      amountPaid:  pPaid > 0 ? pPaid.toFixed(2) : undefined,
+      purchaseQty: finalPurchaseQty ? String(finalPurchaseQty) : undefined,
+      amountPaid:  finalAmountPaid > 0 ? Number(finalAmountPaid).toFixed(2) : undefined,
       priceSource,
     };
     if (isEdit) {
@@ -748,11 +790,37 @@ function IngredientSearchModal({
 
   const liveTotal = (parseFloat(qty) || 0) * (parseFloat(unitPrice) || 0);
 
+  // Derived price field — computed from whichever 2 of 3 are filled
+  const upVal = parseFloat(unitPrice)  || 0;
+  const pqVal = parseFloat(purchaseQty) || 0;
+  const apVal = parseFloat(amountPaid.replace(/[৳$,]/g, "")) || 0;
+  const hasUP = upVal > 0;
+  const hasPQ = pqVal > 0;
+  const hasAP = apVal > 0;
+
+  let derivedField:   string | null = null;
+  let derivedValue:   number | null = null;
+  let derivedFormula: string | null = null;
+
+  if (hasUP && hasPQ && !hasAP) {
+    derivedField   = "Amount Paid";
+    derivedValue   = upVal * pqVal;
+    derivedFormula = `${currencySymbol}${upVal} × ${pqVal} ${unit || "unit"}`;
+  } else if (hasAP && hasUP && !hasPQ) {
+    derivedField   = "Purchase Qty";
+    derivedValue   = apVal / upVal;
+    derivedFormula = `${currencySymbol}${apVal} ÷ ${currencySymbol}${upVal}`;
+  } else if (hasAP && hasPQ && !hasUP) {
+    derivedField   = "Unit Price";
+    derivedValue   = apVal / pqVal;
+    derivedFormula = `${currencySymbol}${apVal} ÷ ${pqVal} ${unit || "unit"}`;
+  }
+
   const modalTitle = isEdit
     ? `Edit — ${editItem!.name}`
     : selected ? `Add ${selected.name}` : "Search Ingredients";
   const modalDesc = isEdit
-    ? `${editItem!.primary ?? "Food & Dining"} · ${editItem!.sub ?? "Other"}`
+    ? `${editItem!.primary ?? PRIMARY_CAT_FOOD} · ${editItem!.sub ?? DEFAULT_SUB}`
     : selected
       ? isCustom
         ? `${customPrimary} · ${customSub} · custom item`
@@ -814,10 +882,17 @@ function IngredientSearchModal({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                <motion.div
+                  key={query}
+                  className="grid grid-cols-3 gap-2 sm:grid-cols-4"
+                  variants={SEARCH_GRID_VARIANTS}
+                  initial="hidden"
+                  animate="show"
+                >
                   {results.map(ing => (
                     <motion.button
                       key={ing.id}
+                      variants={SEARCH_ITEM_VARIANTS}
                       whileHover={{ scale: 1.04, y: -2 }}
                       whileTap={{ scale: 0.97 }}
                       transition={{ type: "spring", stiffness: 400, damping: 22 }}
@@ -833,11 +908,11 @@ function IngredientSearchModal({
                       <p className="text-[11px] font-semibold text-slate-800 leading-tight">{ing.name}</p>
                       <p className="text-[9px] text-slate-400 mt-0.5 truncate w-full text-center">{ing.sub}</p>
                       <p className="mt-1 text-[10px] font-semibold text-emerald-600">
-                        {sym}{ing.unitPrice}/{ing.unit}
+                        {currencySymbol}{ing.unitPrice}/{ing.unit}
                       </p>
                     </motion.button>
                   ))}
-                </div>
+                </motion.div>
                 {query.trim() && (
                   <div className="mt-3 flex items-center justify-center gap-2 border-t border-slate-100 pt-3">
                     <span className="text-[11px] text-slate-400">Not what you&apos;re looking for?</span>
@@ -871,7 +946,7 @@ function IngredientSearchModal({
             </div>
             {!isCustom && (
               <span className="text-[11px] font-semibold text-emerald-600 shrink-0">
-                est. {sym}{selected.unitPrice}/{selected.unit}
+                est. {currencySymbol}{selected.unitPrice}/{selected.unit}
               </span>
             )}
           </div>
@@ -885,7 +960,7 @@ function IngredientSearchModal({
                   value={customPrimary}
                   onChange={e => {
                     setCustomPrimary(e.target.value);
-                    setCustomSub(Object.keys(CATEGORY_TAXONOMY[e.target.value] ?? {})[0] ?? "Other");
+                    setCustomSub(Object.keys(CATEGORY_TAXONOMY[e.target.value] ?? {})[0] ?? DEFAULT_SUB);
                   }}
                   className="rounded-lg border border-violet-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-400"
                 >
@@ -902,8 +977,8 @@ function IngredientSearchModal({
                   {Object.keys(CATEGORY_TAXONOMY[customPrimary] ?? {}).map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
-                  {!CATEGORY_TAXONOMY[customPrimary]?.["Other"] && (
-                    <option value="Other">Other</option>
+                  {!CATEGORY_TAXONOMY[customPrimary]?.[DEFAULT_SUB] && (
+                    <option value={DEFAULT_SUB}>Other</option>
                   )}
                 </select>
               </div>
@@ -932,14 +1007,15 @@ function IngredientSearchModal({
               fullWidth
             />
             <TextField
-              label={`Unit Price (${sym})`}
+              label={`Unit Price (${currencySymbol})`}
               type="number"
               min="0"
               step="any"
               value={unitPrice}
-              onChange={e => setUnitPrice(e.target.value)}
-              placeholder="0.00"
-              hint="Leave blank to auto-calculate"
+              onChange={e => { setUnitPrice(e.target.value); setPriceError(false); }}
+              placeholder="e.g. 180"
+              hint={priceError ? undefined : "Pre-filled from ingredient — edit if needed"}
+              error={priceError ? "Fill any 2 of: Unit Price · Purchase Qty · Amount Paid" : undefined}
               size="sm"
               fullWidth
             />
@@ -949,20 +1025,23 @@ function IngredientSearchModal({
               min="0"
               step="any"
               value={purchaseQty}
-              onChange={e => setPurchaseQty(e.target.value)}
-              placeholder="optional"
+              onChange={e => { setPurchaseQty(e.target.value); setPriceError(false); }}
+              placeholder="e.g. 3"
+              hint={priceError ? undefined : "Total quantity purchased"}
+              error={priceError ? "Fill any 2 of: Unit Price · Purchase Qty · Amount Paid" : undefined}
               size="sm"
               fullWidth
             />
             <TextField
-              label={`Amount Paid (${sym})`}
+              label={`Amount Paid (${currencySymbol})`}
               type="number"
               min="0"
               step="any"
               value={amountPaid}
-              onChange={e => setAmountPaid(e.target.value)}
-              placeholder="optional"
-              hint="Fills unit price if blank above"
+              onChange={e => { setAmountPaid(e.target.value); setPriceError(false); }}
+              placeholder="e.g. 550"
+              hint={priceError ? undefined : "Auto-calculates unit price if left blank above"}
+              error={priceError ? "Fill any 2 of: Unit Price · Purchase Qty · Amount Paid" : undefined}
               size="sm"
               fullWidth
             />
@@ -980,11 +1059,41 @@ function IngredientSearchModal({
           {liveTotal > 0 && (
             <div className="flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
               <span className="text-xs text-indigo-600">
-                {qty || "1"} {unit} × {sym}{unitPrice} =
+                {qty || "1"} {unit} × {currencySymbol}{unitPrice} =
               </span>
-              <span className="text-sm font-bold text-indigo-700">{sym}{liveTotal.toFixed(2)}</span>
+              <span className="text-sm font-bold text-indigo-700">{currencySymbol}{liveTotal.toFixed(2)}</span>
             </div>
           )}
+
+          {/* Derived price field — shown when exactly 2 of 3 price fields are filled */}
+          <AnimatePresence mode="wait">
+            {derivedField !== null && derivedValue !== null && (
+              <motion.div
+                key={derivedField}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">
+                    =
+                  </span>
+                  <span className="text-xs text-emerald-700">
+                    <span className="font-semibold">{derivedField}</span>
+                    <span className="mx-1.5 text-emerald-400">·</span>
+                    {derivedFormula}
+                  </span>
+                </div>
+                <span className="text-sm font-bold text-emerald-700">
+                  {derivedField === "Purchase Qty"
+                    ? `${derivedValue.toFixed(2)} ${unit || "unit"}`
+                    : `${currencySymbol}${derivedValue.toFixed(2)}`}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </Modal>
@@ -1031,11 +1140,11 @@ export default function CostGenerationPage() {
   }
 
   // Filter state
-  const [filterDate,    setFilterDate]    = useState<string>("all");
-  const [filterPrimary, setFilterPrimary] = useState<string>("all");
-  const [filterSub,     setFilterSub]     = useState<string>("all");
-  const [filterSource,  setFilterSource]  = useState<string>("all");
-  const [filterItem,    setFilterItem]    = useState<string>("all");
+  const [filterDate,    setFilterDate]    = useState<string>(FILTER_ALL);
+  const [filterPrimary, setFilterPrimary] = useState<string>(FILTER_ALL);
+  const [filterSub,     setFilterSub]     = useState<string>(FILTER_ALL);
+  const [filterSource,  setFilterSource]  = useState<string>(FILTER_ALL);
+  const [filterItemName,    setFilterItem]    = useState<string>(FILTER_ALL);
 
   // Ingredient search / edit modal
   const [searchOpen,   setSearchOpen]   = useState(false);
@@ -1053,15 +1162,15 @@ export default function CostGenerationPage() {
   // Source: only sources that exist on the selected date
   const sourceOptions = [...new Set(
     uploads
-      .filter(u => filterDate === "all" || u.date === filterDate)
+      .filter(u => filterDate === FILTER_ALL || u.date === filterDate)
       .map(u => u.source)
   )].sort() as ("receipt" | "csv" | "manual")[];
 
   // Items that survive date + source filters — used as the base for category options
   const dateSourceItems = uploads
     .filter(u => {
-      if (filterDate   !== "all" && u.date   !== filterDate)   return false;
-      if (filterSource !== "all" && u.source !== filterSource) return false;
+      if (filterDate   !== FILTER_ALL && u.date   !== filterDate)   return false;
+      if (filterSource !== FILTER_ALL && u.source !== filterSource) return false;
       return true;
     })
     .flatMap(u => u.items);
@@ -1074,7 +1183,7 @@ export default function CostGenerationPage() {
   // Subcategory: only subcategories present within the selected primary (and date+source)
   const subOptions = [...new Set(
     dateSourceItems
-      .filter(i => filterPrimary === "all" || i.primary === filterPrimary)
+      .filter(i => filterPrimary === FILTER_ALL || i.primary === filterPrimary)
       .map(i => i.sub).filter((v): v is string => !!v)
   )].sort();
 
@@ -1082,34 +1191,34 @@ export default function CostGenerationPage() {
   const itemNameOptions = [...new Set(
     dateSourceItems
       .filter(i => {
-        if (filterPrimary !== "all" && i.primary !== filterPrimary) return false;
-        if (filterSub     !== "all" && i.sub     !== filterSub)     return false;
+        if (filterPrimary !== FILTER_ALL && i.primary !== filterPrimary) return false;
+        if (filterSub     !== FILTER_ALL && i.sub     !== filterSub)     return false;
         return true;
       }).map(i => i.name)
   )].sort();
 
-  const anyFilterActive = filterDate !== "all" || filterPrimary !== "all" || filterSub !== "all" || filterSource !== "all" || filterItem !== "all";
+  const anyFilterActive = filterDate !== FILTER_ALL || filterPrimary !== FILTER_ALL || filterSub !== FILTER_ALL || filterSource !== FILTER_ALL || filterItemName !== FILTER_ALL;
 
   // Uploads filtered by date/source first, then items filtered by category/item
   const filteredUploads = uploads
     .filter(upload => {
-      if (filterDate   !== "all" && upload.date   !== filterDate)   return false;
-      if (filterSource !== "all" && upload.source !== filterSource) return false;
+      if (filterDate   !== FILTER_ALL && upload.date   !== filterDate)   return false;
+      if (filterSource !== FILTER_ALL && upload.source !== filterSource) return false;
       return true;
     })
     .map(upload => ({
       ...upload,
       items: upload.items.filter(item => {
-        if (filterPrimary !== "all" && item.primary !== filterPrimary) return false;
-        if (filterSub     !== "all" && item.sub     !== filterSub)     return false;
-        if (filterItem    !== "all" && item.name    !== filterItem)     return false;
+        if (filterPrimary !== FILTER_ALL && item.primary !== filterPrimary) return false;
+        if (filterSub     !== FILTER_ALL && item.sub     !== filterSub)     return false;
+        if (filterItemName    !== FILTER_ALL && item.name    !== filterItemName)     return false;
         return true;
       }),
     })).filter(u => u.items.length > 0);
 
   const filteredItemCount = filteredUploads.flatMap(u => u.items).length;
 
-  const sym        = PAYMENT_CONFIG.symbol;
+  const currencySymbol       = PAYMENT_CONFIG.symbol;
   const mealsCount = Object.values(mealCounts).reduce((s, v) => s + v, 0);
 
   function updateMealCount(key: MealTypeKey, value: number) {
@@ -1124,7 +1233,7 @@ export default function CostGenerationPage() {
   const costPerMeal    = mealsCount > 0 ? (totalAmount / mealsCount).toFixed(2) : "0.00";
   const dailyCost      = activeMembers > 0 ? (Number(costPerMeal) * activeMembers).toFixed(2) : "0.00";
   const monthlyCost    = (Number(dailyCost) * 30).toFixed(2);
-  const calcCount      = items.filter(it => it.priceSource === "calculated").length;
+  const autoCalculatedCount      = items.filter(it => it.priceSource === "calculated").length;
   // Items whose name contains "transport" are treated as the delivery/freight cost row
   const transportItems   = items.filter(it => it.name.toLowerCase().includes("transport"));
   const transportTotal   = transportItems.reduce((s, it) => s + parseFloat(it.total || "0"), 0);
@@ -1244,7 +1353,7 @@ export default function CostGenerationPage() {
           <h1 className="text-xl font-bold text-slate-900">Generate Meal Cost</h1>
           <p className="mt-0.5 text-sm text-slate-500">
             Upload a receipt or use the CSV template to calculate cost per meal.
-            Currency: <span className="font-medium text-slate-700">{PAYMENT_CONFIG.code} ({sym})</span>
+            Currency: <span className="font-medium text-slate-700">{PAYMENT_CONFIG.code} ({currencySymbol})</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1298,7 +1407,7 @@ export default function CostGenerationPage() {
                   <div className="flex flex-col gap-2">
                     {[...uploads].sort((a, b) => a.date.localeCompare(b.date)).map(upload => {
                       const dayTotal   = upload.items.reduce((s, it) => s + parseFloat(it.total || "0"), 0);
-                      const dayCalc    = upload.items.filter(it => it.priceSource === "calculated").length;
+                      const autoCalculatedCount    = upload.items.filter(it => it.priceSource === "calculated").length;
                       return (
                         <motion.div
                           key={upload.id}
@@ -1323,8 +1432,8 @@ export default function CostGenerationPage() {
                               <span className="text-[10px] text-slate-500 truncate">{upload.filename}</span>
                             </div>
                             <p className="mt-0.5 text-[10px] text-emerald-700">
-                              {upload.items.length} items · {fmt(dayTotal)}
-                              {dayCalc > 0 && ` · ${dayCalc} auto-priced`}
+                              {upload.items.length} items · {formatCurrency(dayTotal)}
+                              {autoCalculatedCount > 0 && ` · ${autoCalculatedCount} auto-priced`}
                             </p>
                           </div>
                           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
@@ -1422,12 +1531,12 @@ export default function CostGenerationPage() {
                     {uploads.length > 1 && (
                       <><strong>{uploads.length} days</strong> uploaded · </>
                     )}
-                    Total <strong>{fmt(totalAmount)}</strong> ÷ <strong>{mealsCount} meals</strong> = <strong>{fmt(costPerMeal)} / meal</strong>.
-                    {" "}Serving <strong>{activeMembers.toLocaleString()} {orgName} members</strong> = <strong>{fmt(Number(dailyCost).toFixed(2))} / day</strong>.
+                    Total <strong>{formatCurrency(totalAmount)}</strong> ÷ <strong>{mealsCount} meals</strong> = <strong>{formatCurrency(costPerMeal)} / meal</strong>.
+                    {" "}Serving <strong>{activeMembers.toLocaleString()} {orgName} members</strong> = <strong>{formatCurrency(Number(dailyCost).toFixed(2))} / day</strong>.
                     {uploads.length > 1 && (
-                      <> · Daily avg spend: <strong>{fmt(totalAmount / uploads.length)}</strong></>
+                      <> · Daily avg spend: <strong>{formatCurrency(totalAmount / uploads.length)}</strong></>
                     )}
-                    {calcCount > 0 && ` · ${calcCount} unit prices auto-calculated`}
+                    {autoCalculatedCount > 0 && ` · ${autoCalculatedCount} unit prices auto-calculated`}
                   </p>
                 </motion.div>
               )}
@@ -1443,17 +1552,17 @@ export default function CostGenerationPage() {
                       <h2 className="text-sm font-semibold text-slate-900">
                         Ingredients — {uploads.length > 1 ? `${uploads.length} days` : uploads[0]?.date ?? "Today"}
                       </h2>
-                      <p className="text-[11px] text-slate-400">Prices in {PAYMENT_CONFIG.code} ({sym}) · grouped by date</p>
+                      <p className="text-[11px] text-slate-400">Prices in {PAYMENT_CONFIG.code} ({currencySymbol}) · grouped by date</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600">
                       {items.length} items
                     </span>
-                    {calcCount > 0 && (
+                    {autoCalculatedCount > 0 && (
                       <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
                         <Zap className="h-3 w-3" />
-                        {calcCount} auto-priced
+                        {autoCalculatedCount} auto-priced
                       </span>
                     )}
                     <Button variant="outline" size="sm" icon={Download}
@@ -1463,10 +1572,10 @@ export default function CostGenerationPage() {
                           ...items.map(it => [
                             it.date ?? "",
                             it.name, it.qty, it.unit,
-                            `${sym}${it.unitPrice}`,
+                            `${currencySymbol}${it.unitPrice}`,
                             it.purchaseQty ?? "",
-                            it.amountPaid ? `${sym}${it.amountPaid}` : "",
-                            fmt(it.total),
+                            it.amountPaid ? `${currencySymbol}${it.amountPaid}` : "",
+                            formatCurrency(it.total),
                             it.priceSource,
                             PAYMENT_CONFIG.code,
                           ]),
@@ -1512,34 +1621,34 @@ export default function CostGenerationPage() {
                     value={filterDate}
                     onChange={e => {
                       setFilterDate(e.target.value);
-                      setFilterSource("all");
-                      setFilterPrimary("all");
-                      setFilterSub("all");
-                      setFilterItem("all");
+                      setFilterSource(FILTER_ALL);
+                      setFilterPrimary(FILTER_ALL);
+                      setFilterSub(FILTER_ALL);
+                      setFilterItem(FILTER_ALL);
                     }}
                     disabled={dateOptions.length === 0}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40"
                   >
-                    <option value="all">All Dates</option>
+                    <option value={FILTER_ALL}>All Dates</option>
                     {dateOptions.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
 
                   <select
                     value={filterPrimary}
-                    onChange={e => { setFilterPrimary(e.target.value); setFilterSub("all"); setFilterItem("all"); }}
+                    onChange={e => { setFilterPrimary(e.target.value); setFilterSub(FILTER_ALL); setFilterItem(FILTER_ALL); }}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   >
-                    <option value="all">All Categories</option>
+                    <option value={FILTER_ALL}>All Categories</option>
                     {primaryOptions.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
 
                   <select
                     value={filterSub}
-                    onChange={e => { setFilterSub(e.target.value); setFilterItem("all"); }}
+                    onChange={e => { setFilterSub(e.target.value); setFilterItem(FILTER_ALL); }}
                     disabled={subOptions.length === 0}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40"
                   >
-                    <option value="all">All Subcategories</option>
+                    <option value={FILTER_ALL}>All Subcategories</option>
                     {subOptions.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
 
@@ -1547,14 +1656,14 @@ export default function CostGenerationPage() {
                     value={filterSource}
                     onChange={e => {
                       setFilterSource(e.target.value);
-                      setFilterPrimary("all");
-                      setFilterSub("all");
-                      setFilterItem("all");
+                      setFilterPrimary(FILTER_ALL);
+                      setFilterSub(FILTER_ALL);
+                      setFilterItem(FILTER_ALL);
                     }}
                     disabled={sourceOptions.length === 0}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-40"
                   >
-                    <option value="all">All Sources</option>
+                    <option value={FILTER_ALL}>All Sources</option>
                     {sourceOptions.map(s => (
                       <option key={s} value={s}>
                         {s === "receipt" ? "Receipt / Image" : s === "csv" ? "CSV Template" : "Manual Entry"}
@@ -1563,11 +1672,11 @@ export default function CostGenerationPage() {
                   </select>
 
                   <select
-                    value={filterItem}
+                    value={filterItemName}
                     onChange={e => setFilterItem(e.target.value)}
                     className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   >
-                    <option value="all">All Items</option>
+                    <option value={FILTER_ALL}>All Items</option>
                     {itemNameOptions.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
 
@@ -1575,14 +1684,23 @@ export default function CostGenerationPage() {
                     <>
                       <button
                         type="button"
-                        onClick={() => { setFilterDate("all"); setFilterPrimary("all"); setFilterSub("all"); setFilterSource("all"); setFilterItem("all"); }}
+                        onClick={() => { setFilterDate(FILTER_ALL); setFilterPrimary(FILTER_ALL); setFilterSub(FILTER_ALL); setFilterSource(FILTER_ALL); setFilterItem(FILTER_ALL); }}
                         className="flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-600 hover:bg-indigo-100 transition-colors"
                       >
                         <X className="h-2.5 w-2.5" /> Clear
                       </button>
-                      <span className="text-[10px] text-slate-400">
-                        {filteredItemCount} of {items.length} items
-                      </span>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={filteredItemCount}
+                          initial={{ opacity: 0, scale: 0.85 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85 }}
+                          transition={{ duration: 0.15 }}
+                          className="text-[10px] text-slate-400"
+                        >
+                          {filteredItemCount} of {items.length} items
+                        </motion.span>
+                      </AnimatePresence>
                     </>
                   )}
                 </div>
@@ -1591,7 +1709,7 @@ export default function CostGenerationPage() {
                   <table className="w-full text-xs">
                     <thead className="border-b border-slate-50 bg-slate-50">
                       <tr>
-                        {["#", "Date", "Item Name", "Recipe Qty", "Unit", `Unit Price (${sym})`, "Purchase Info", `Total (${sym})`, ""].map(h => (
+                        {["#", "Date", "Item Name", "Recipe Qty", "Unit", `Unit Price (${currencySymbol})`, "Purchase Info", `Total (${currencySymbol})`, ""].map(h => (
                           <th key={h} className="px-4 py-2.5 text-left font-semibold text-slate-500">{h}</th>
                         ))}
                       </tr>
@@ -1610,18 +1728,20 @@ export default function CostGenerationPage() {
                                   <span className="text-[10px] text-indigo-400">·</span>
                                   <span className="text-[10px] text-indigo-500">{upload.items.length} items</span>
                                   <span className="text-[10px] text-indigo-400">·</span>
-                                  <span className="text-[10px] font-semibold text-indigo-600">{fmt(dayTotal)}</span>
+                                  <span className="text-[10px] font-semibold text-indigo-600">{formatCurrency(dayTotal)}</span>
                                   <span className="ml-auto text-[10px] text-indigo-400 truncate">{upload.filename}</span>
                                 </div>
                               </td>
                             </tr>
                             {/* Items for this day */}
+                            <AnimatePresence mode="popLayout">
                             {upload.items.map((item, i) => (
                               <motion.tr
                                 key={item.id}
                                 layout
                                 initial={{ opacity: 0, x: -8 }}
                                 animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 20, transition: { duration: 0.18 } }}
                                 transition={{ delay: i * 0.02, duration: 0.2 }}
                                 className="hover:bg-slate-50/60 transition-colors"
                               >
@@ -1649,7 +1769,7 @@ export default function CostGenerationPage() {
                                 <td className="px-4 py-2.5 text-slate-500">{item.unit}</td>
                                 <td className="px-4 py-2.5">
                                   <div className="flex flex-col gap-0.5">
-                                    <span className="text-slate-600">{sym}{item.unitPrice}/{item.unit || "unit"}</span>
+                                    <span className="text-slate-600">{currencySymbol}{item.unitPrice}/{item.unit || "unit"}</span>
                                     {item.priceSource === "calculated" && (
                                       <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-600">
                                         <Zap className="h-2.5 w-2.5" />auto-calc
@@ -1660,13 +1780,13 @@ export default function CostGenerationPage() {
                                 <td className="px-4 py-2.5">
                                   {item.purchaseQty && item.amountPaid ? (
                                     <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700">
-                                      {item.purchaseQty} {item.unit} = {sym}{item.amountPaid}
+                                      {item.purchaseQty} {item.unit} = {currencySymbol}{item.amountPaid}
                                     </span>
                                   ) : (
                                     <span className="text-slate-300">—</span>
                                   )}
                                 </td>
-                                <td className="px-4 py-2.5 font-semibold text-slate-900">{fmt(item.total)}</td>
+                                <td className="px-4 py-2.5 font-semibold text-slate-900">{formatCurrency(item.total)}</td>
                                 <td className="px-4 py-2.5">
                                   <div className="flex items-center gap-0.5">
                                     <motion.button
@@ -1690,13 +1810,14 @@ export default function CostGenerationPage() {
                                 </td>
                               </motion.tr>
                             ))}
+                            </AnimatePresence>
                             {/* Day subtotal row (only shown when multiple days visible) */}
                             {filteredUploads.length > 1 && (
                               <tr className="border-b border-indigo-100 bg-indigo-50/40">
                                 <td colSpan={7} className="px-4 py-1.5 text-right text-[10px] font-semibold text-indigo-500">
                                   {upload.date} subtotal
                                 </td>
-                                <td className="px-4 py-1.5 text-[11px] font-bold text-indigo-700">{fmt(dayTotal)}</td>
+                                <td className="px-4 py-1.5 text-[11px] font-bold text-indigo-700">{formatCurrency(dayTotal)}</td>
                                 <td />
                               </tr>
                             )}
@@ -1707,7 +1828,7 @@ export default function CostGenerationPage() {
                     <tfoot className="border-t border-slate-200 bg-slate-50">
                       <tr>
                         <td colSpan={7} className="px-4 py-2.5 font-semibold text-slate-700 text-right">Total ({PAYMENT_CONFIG.code}):</td>
-                        <td className="px-4 py-2.5 font-bold text-slate-900">{fmt(totalAmount)}</td>
+                        <td className="px-4 py-2.5 font-bold text-slate-900">{formatCurrency(totalAmount)}</td>
                         <td />
                       </tr>
                       {anyFilterActive && (
@@ -1738,11 +1859,13 @@ export default function CostGenerationPage() {
                             <span className={`text-[11px] font-semibold ${mt.text}`}>{mt.label}</span>
                           </div>
                           <p className="text-xs font-bold text-slate-800">
-                            {perMeal ? `${sym}${perMeal}` : "—"}
+                            {perMeal
+                              ? <AnimatedNumber value={Number(perMeal)} prefix={currencySymbol} decimals={2} />
+                              : "—"}
                             <span className="text-[10px] font-normal text-slate-400">/meal</span>
                           </p>
                           <p className={`text-[10px] ${mt.text} opacity-70`}>
-                            {count} meals · {fmt(costShare)}
+                            {count} meals · <AnimatedNumber value={costShare} prefix={currencySymbol} decimals={2} />
                           </p>
                         </div>
                       );
@@ -1788,7 +1911,7 @@ export default function CostGenerationPage() {
                   { col: "D", label: "Unit",         note: "kg / ml / g / pcs / trip" },
                   { col: "E", label: "Unit Price",   note: `${PAYMENT_CONFIG.code} (optional)` },
                   { col: "F", label: "Purchase Qty", note: "e.g. 3 for 3 kg" },
-                  { col: "G", label: "Amount Paid",  note: `e.g. ${sym}550` },
+                  { col: "G", label: "Amount Paid",  note: `e.g. ${currencySymbol}550` },
                 ].map(({ col, label, note }) => (
                   <div key={col} className="flex items-center gap-2">
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-emerald-100 text-[9px] font-bold text-emerald-700">{col}</span>
@@ -1820,14 +1943,19 @@ export default function CostGenerationPage() {
             </div>
             <div className="mt-3 flex flex-col gap-3">
               {[
-                { label: "Total Amount",                                      val: fmt(totalAmount),                                 lg: false },
-                { label: "Cost Per Meal",                                     val: fmt(costPerMeal),                                 lg: true  },
-                { label: `Daily (${activeMembers.toLocaleString()} members)`, val: `${sym}${Number(dailyCost).toLocaleString()}`,    lg: false },
-                { label: "Monthly Est.",                                      val: `${sym}${Number(monthlyCost).toLocaleString()}`,  lg: false },
+                { label: "Total Amount",                                      value: totalAmount,          lg: false },
+                { label: "Cost Per Meal",                                     value: Number(costPerMeal),  lg: true  },
+                { label: `Daily (${activeMembers.toLocaleString()} members)`, value: Number(dailyCost),    lg: false },
+                { label: "Monthly Est.",                                      value: Number(monthlyCost),  lg: false },
               ].map(item => (
                 <div key={item.label} className="flex items-center justify-between border-b border-white/10 pb-2 last:border-0 last:pb-0">
                   <span className="text-xs text-indigo-200">{item.label}</span>
-                  <span className={`font-bold text-white ${item.lg ? "text-2xl" : "text-sm"}`}>{item.val}</span>
+                  <AnimatedNumber
+                    value={item.value}
+                    prefix={currencySymbol}
+                    decimals={2}
+                    className={`font-bold text-white ${item.lg ? "text-2xl" : "text-sm"}`}
+                  />
                 </div>
               ))}
             </div>
@@ -1845,13 +1973,13 @@ export default function CostGenerationPage() {
                         <span className="flex items-center gap-1 text-indigo-200">
                           <Calendar className="h-3 w-3" />{upload.date}
                         </span>
-                        <span className="font-semibold text-white">{fmt(dayTotal)}</span>
+                        <span className="font-semibold text-white">{formatCurrency(dayTotal)}</span>
                       </div>
                     );
                   })}
                   <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1.5 text-[11px]">
                     <span className="text-indigo-300">Avg / day</span>
-                    <span className="font-bold text-white">{fmt(totalAmount / uploads.length)}</span>
+                    <span className="font-bold text-white">{formatCurrency(totalAmount / uploads.length)}</span>
                   </div>
                 </div>
               </div>
@@ -1873,7 +2001,7 @@ export default function CostGenerationPage() {
                         <span className="text-indigo-400">({count})</span>
                       </span>
                       <span className="font-semibold text-white">
-                        {perMeal ? `${sym}${perMeal}/meal` : "—"}
+                        {perMeal ? `${currencySymbol}${perMeal}/meal` : "—"}
                       </span>
                     </div>
                   );
@@ -1912,7 +2040,7 @@ export default function CostGenerationPage() {
                     </ResponsiveContainer>
                     {/* Currency symbol in donut centre */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-xl font-bold text-slate-400">{sym}</span>
+                      <span className="text-xl font-bold text-slate-400">{currencySymbol}</span>
                     </div>
                   </div>
                 </div>
@@ -1938,22 +2066,22 @@ export default function CostGenerationPage() {
               {[
                 {
                   label: "Base Per Meal",
-                  val:   fmt(costPerMeal),
+                  val:   formatCurrency(costPerMeal),
                   note:  undefined,
                 },
                 {
                   label: "Transportation",
-                  val:   `+${fmt(transportPerMeal)}`,
-                  note:  transportTotal > 0 ? `${sym}${transportTotal.toFixed(2)} total` : "from CSV",
+                  val:   `+${formatCurrency(transportPerMeal)}`,
+                  note:  transportTotal > 0 ? `${currencySymbol}${transportTotal.toFixed(2)} total` : "from CSV",
                 },
                 {
                   label: "Cooking Cost",
-                  val:   `+${sym}0.85`,
+                  val:   `+${currencySymbol}0.85`,
                   note:  undefined,
                 },
                 {
                   label: "Packaging",
-                  val:   `+${sym}0.45`,
+                  val:   `+${currencySymbol}0.45`,
                   note:  undefined,
                 },
               ].map(item => (
@@ -1970,7 +2098,7 @@ export default function CostGenerationPage() {
               <div className="flex items-center justify-between border-t border-slate-200 mt-0.5 pt-1.5">
                 <span className="font-semibold text-slate-700">Total Per Meal</span>
                 <span className="font-bold text-indigo-600 text-sm">
-                  {fmt(Number(costPerMeal) + transportPerMeal + 0.85 + 0.45)}
+                  {formatCurrency(Number(costPerMeal) + transportPerMeal + 0.85 + 0.45)}
                 </span>
               </div>
             </div>
@@ -2002,7 +2130,7 @@ export default function CostGenerationPage() {
                       <p className="mt-0.5 text-[10px] text-orange-800 leading-relaxed">
                         <strong>{transportTrips} trips</strong> recorded this period exceeds the
                         expected <strong>{transportThreshold}</strong> ({weeksInMonth} weeks × 2 trips —
-                        one to the market, one return). Total transport spend: <strong>{fmt(transportTotal)}</strong>.
+                        one to the market, one return). Total transport spend: <strong>{formatCurrency(transportTotal)}</strong>.
                         Paying a fixed monthly transport rate at the{" "}
                         <strong>start of the month</strong> can reduce per-trip overhead
                         and lower your cost per meal.

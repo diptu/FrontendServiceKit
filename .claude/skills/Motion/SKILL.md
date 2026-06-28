@@ -1,7 +1,7 @@
 description: Provides expert-level implementation guidance for Motion (Framer Motion) in React. Use this when the user needs to build complex animations, design interactive components, optimize animation performance, or integrate motion into data visualizations.
 
 
-## Instructions
+## Instructionsf
 
 When asked to provide motion solutions, adhere to the following framework:
 
@@ -15,4 +15,4 @@ Actionable Code: Provide clean, TypeScript-ready snippets. Use comments to expla
 
 Contextual Awareness: Briefly highlight accessibility (e.g., respecting prefers-reduced-motion) or potential UX pitfalls if the animation could distract from core functionality
 
-**Execution** RUN /motion
+**Execution** RUN /motion/

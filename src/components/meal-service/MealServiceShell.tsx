@@ -64,7 +64,7 @@ function buildFullNav(base: string): NavSection[] {
       label: "Main Menu",
       items: [
         { label: "Analytics",         icon: BarChart3,       href: `${base}/analytics`        },
-        { label: "Cost Generation",   icon: Calculator,      href: `${base}/cost-generation`  },
+        { label: "Goods Cost",        icon: Calculator,      href: `${base}/goods-cost`       },
         { label: "Customers",         icon: Users,           href: `${base}/customers`        },
         { label: "Ingredients",       icon: Package,         href: `${base}/ingredients`      },
         { label: "Meal Plans",        icon: ClipboardList,   href: `${base}/plans`            },

@@ -5,7 +5,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
   Bell, Lock, Globe, Palette, Building2, CreditCard, Plug, Save,
   Upload, Trash2, Database, RefreshCw, HardDrive, CheckCircle2,
-  Download, ChevronDown,
+  Download, ChevronDown, CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FadeIn, SlideUp, SlideIn } from "@/components/ui";
@@ -66,6 +66,40 @@ function SelectField({ label, options, defaultValue }: { label: string; options:
   );
 }
 
+/* ── Weekly default plans ────────────────────────────────────────────────── */
+export const DAY_PLAN_KEY = "meal-planner-day-defaults";
+
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+type WeekDay = typeof WEEK_DAYS[number];
+
+export const PLAN_OPTIONS = [
+  "Balanced Plan",
+  "High Protein",
+  "Vegetarian Plan",
+  "Keto Flex",
+  "Vegan Power",
+  "Med. Plan",
+  "Athlete Pro",
+  "Low Carb",
+  "Detox Cleanse",
+];
+
+const DEFAULT_DAY_PLANS: Record<WeekDay, string> = {
+  Mon: "Balanced Plan", Tue: "High Protein",    Wed: "Vegetarian Plan",
+  Thu: "Balanced Plan", Fri: "Keto Flex",        Sat: "Athlete Pro",
+  Sun: "Balanced Plan",
+};
+
+function loadDayPlans(): Record<WeekDay, string> {
+  if (typeof window === "undefined") return { ...DEFAULT_DAY_PLANS };
+  try {
+    const stored = localStorage.getItem(DAY_PLAN_KEY);
+    return stored ? { ...DEFAULT_DAY_PLANS, ...(JSON.parse(stored) as Partial<Record<WeekDay, string>>) } : { ...DEFAULT_DAY_PLANS };
+  } catch {
+    return { ...DEFAULT_DAY_PLANS };
+  }
+}
+
 const STORAGE_DATA = [
   { name: "Used",  value: 62, color: "#6366f1" },
   { name: "Free",  value: 38, color: "#e2e8f0" },
@@ -85,9 +119,11 @@ type TabId = typeof TABS[number]["id"];
 /* ── Page ───────────────────────────────────────────────────────────────── */
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>("org");
-  const [saved, setSaved] = useState(false);
+  const [saved,     setSaved]     = useState(false);
+  const [dayPlans,  setDayPlans]  = useState<Record<WeekDay, string>>(loadDayPlans);
 
   function handleSave() {
+    try { localStorage.setItem(DAY_PLAN_KEY, JSON.stringify(dayPlans)); } catch {}
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -312,6 +348,39 @@ export default function SettingsPage() {
                 <ToggleRow label="Enable Delivery Tracking"   desc="Real-time GPS delivery tracking for all orders."     defaultOn />
                 <ToggleRow label="Enable Quality Feedback"    desc="Prompt members to rate meals after delivery."        defaultOn />
                 <ToggleRow label="Enable Maintenance Mode"    desc="Put the service in read-only maintenance mode." />
+              </SlideUp>
+
+              {/* Weekly Default Plans — spans both columns */}
+              <SlideUp delay={0.08} className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-indigo-500" />
+                  <h2 className="text-sm font-semibold text-slate-900">Weekly Default Plans</h2>
+                </div>
+                <p className="mb-4 text-[11px] text-slate-400 leading-relaxed">
+                  Choose the default meal plan for each day of the week. These values are used to
+                  pre-fill the <span className="font-medium text-slate-600">Plan</span> column when
+                  downloading the planner CSV template.
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+                  {WEEK_DAYS.map(day => (
+                    <div key={day} className="flex flex-col gap-1.5">
+                      <label className="text-[11px] font-semibold text-slate-500 text-center">{day}</label>
+                      <div className="relative">
+                        <select
+                          value={dayPlans[day]}
+                          onChange={e => setDayPlans(prev => ({ ...prev, [day]: e.target.value }))}
+                          className="w-full appearance-none rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-7"
+                        >
+                          {PLAN_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-[10px] text-slate-400">
+                  Changes take effect the next time you download the template from the Planner page. Click <span className="font-medium">Save Changes</span> to persist.
+                </p>
               </SlideUp>
             </div>
           )}
