@@ -1302,6 +1302,258 @@ export default function CostGenerationPage() {
     setCsvError(null);
   }
 
+  async function generateReport() {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const W   = doc.internal.pageSize.getWidth();   // 210
+    const H   = doc.internal.pageSize.getHeight();  // 297
+    const ML  = 14;
+    const MR  = W - ML;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+
+    // jsPDF Helvetica only covers Latin-1 — strip emoji and replace ৳ with the code
+    const clean = (s: string) =>
+      s.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "").trim();
+
+    // Thousands-separated amount, e.g. "BDT 66,711.60"
+    const money = (n: number) =>
+      `${PAYMENT_CONFIG.code} ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    // ── Header (two-tone) ────────────────────────────────────────────────
+    doc.setFillColor(49, 46, 129);   // indigo-900 — right panel
+    doc.rect(0, 0, W, 34, "F");
+    doc.setFillColor(79, 70, 229);   // indigo-600 — left brand panel
+    doc.rect(0, 0, 85, 34, "F");
+
+    // Brand (left)
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("NutraTenant", ML, 13);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(199, 210, 254);
+    doc.text("Meal Service  |  Goods Cost Report", ML, 21);
+    doc.setFontSize(7);
+    doc.setTextColor(165, 180, 252);
+    doc.text("CONFIDENTIAL - Internal Use Only", ML, 29);
+
+    // Separator
+    doc.setDrawColor(99, 102, 241);
+    doc.setLineWidth(0.4);
+    doc.line(87, 5, 87, 29);
+
+    // Report meta (right)
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("Goods Cost Report", MR, 12, { align: "right" });
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(199, 210, 254);
+    doc.text(orgName, MR, 20, { align: "right" });
+    doc.text(`${dateStr}  |  ${PAYMENT_CONFIG.code}`, MR, 27, { align: "right" });
+
+    let y = 44;
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function pageCheck(needed = 60) { if (y > H - needed) { doc.addPage(); y = 18; } }
+
+    function sectionHead(title: string) {
+      pageCheck(80);
+      doc.setFillColor(238, 242, 255);
+      doc.rect(ML, y, W - ML * 2, 8, "F");
+      doc.setFillColor(79, 70, 229);
+      doc.rect(ML, y, 3, 8, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(55, 48, 163);
+      doc.text(title.toUpperCase(), ML + 7, y + 5.5);
+      y += 13;
+    }
+
+    // Draw a single metric card
+    function metricCard(
+      cx: number, cy: number, cw: number, ch: number,
+      label: string, value: string,
+      accent: [number, number, number],
+    ) {
+      // Card bg + border
+      doc.setFillColor(250, 250, 255);
+      doc.roundedRect(cx, cy, cw, ch, 2, 2, "F");
+      doc.setDrawColor(224, 231, 255);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(cx, cy, cw, ch, 2, 2, "S");
+      // Left accent bar
+      doc.setFillColor(...accent);
+      doc.roundedRect(cx, cy, 3, ch, 1, 1, "F");
+      // Label
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.text(label, cx + 7, cy + 6);
+      // Value
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(value, cx + 7, cy + 14);
+    }
+
+    // ── Section 1 — Executive Summary ────────────────────────────────────
+    sectionHead("Executive Summary");
+
+    type Accent = [number, number, number];
+    const metrics: { label: string; value: string; accent: Accent }[] = [
+      { label: "Total Goods Cost",                      value: money(totalAmount),          accent: [79,  70,  229] },
+      { label: "Cost per Meal",                         value: money(Number(costPerMeal)),  accent: [16,  185, 129] },
+      { label: `Daily Cost (${activeMembers} members)`, value: money(Number(dailyCost)),    accent: [245, 158, 11]  },
+      { label: "Monthly Estimate (30 days)",            value: money(Number(monthlyCost)),  accent: [239, 68,  68]  },
+      { label: "Total Meals",                           value: mealsCount.toLocaleString(), accent: [99,  102, 241] },
+      { label: "Days Uploaded",                         value: String(uploads.length),      accent: [148, 163, 184] },
+    ];
+    if (uploads.length > 1) {
+      metrics.push({ label: "Daily Avg Spend", value: money(totalAmount / uploads.length), accent: [20, 184, 166] });
+    }
+
+    const colCount = 2;
+    const gap      = 4;
+    const cardW    = (W - ML * 2 - gap * (colCount - 1)) / colCount;
+    const cardH    = 19;
+
+    for (let i = 0; i < metrics.length; i++) {
+      const col = i % colCount;
+      const row = Math.floor(i / colCount);
+      metricCard(
+        ML + col * (cardW + gap),
+        y + row * (cardH + 3),
+        cardW, cardH,
+        metrics[i].label, metrics[i].value, metrics[i].accent,
+      );
+    }
+    y += Math.ceil(metrics.length / colCount) * (cardH + 3) + 8;
+
+    // ── Section 2 — Item Breakdown ────────────────────────────────────────
+    sectionHead("Item Breakdown");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const itemBody: any[][] = [];
+    for (const upload of uploads) {
+      let dayTotal = 0;
+      for (const item of upload.items) {
+        const total = parseFloat(item.total || "0");
+        dayTotal += total;
+        itemBody.push([
+          upload.date,
+          clean(item.name),
+          item.primary ?? "—",
+          item.sub ?? "—",
+          `${item.qty} ${item.unit}`,
+          `${PAYMENT_CONFIG.code} ${item.unitPrice}`,
+          money(total),
+        ]);
+      }
+      if (uploads.length > 1) {
+        itemBody.push([
+          {
+            content: `${upload.date}  -  Day Subtotal`,
+            colSpan: 6,
+            styles: { fontStyle: "bold", fillColor: [224, 231, 255], textColor: [67, 56, 202] },
+          },
+          {
+            content: money(dayTotal),
+            styles: { halign: "right", fontStyle: "bold", fillColor: [224, 231, 255], textColor: [67, 56, 202] },
+          },
+        ]);
+      }
+    }
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: ML, right: ML },
+      head: [["Date", "Item Name", "Category", "Sub-category", "Qty", `Unit Price`, `Total (${PAYMENT_CONFIG.code})`]],
+      body: itemBody,
+      foot: [["", "", "", "", "", "Grand Total", money(totalAmount)]],
+      headStyles: {
+        fillColor: [79, 70, 229], textColor: 255, fontSize: 8, fontStyle: "bold",
+        cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
+      },
+      bodyStyles: { fontSize: 8, cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 } },
+      footStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 9, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        1: { cellWidth: 45 },
+        5: { halign: "right", cellWidth: 22 },
+        6: { halign: "right", fontStyle: "bold", cellWidth: 28 },
+      },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 10;
+    pageCheck(65);
+
+    // ── Section 3 — Cost per Meal Type ────────────────────────────────────
+    sectionHead("Cost per Meal Type");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mealBody: any[][] = MEAL_TYPE_DEFS.map(mt => {
+      const count     = mealCounts[mt.key];
+      const costShare = mealsCount > 0 && count > 0 ? (count / mealsCount) * totalAmount : 0;
+      const pct       = mealsCount > 0 && count > 0
+        ? `${((count / mealsCount) * 100).toFixed(1)}%` : "0.0%";
+      const perMeal   = count > 0 ? money(costShare / count) : "—";
+      return [clean(mt.label), count.toLocaleString(), pct, money(costShare), perMeal];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: ML, right: ML },
+      head: [["Meal Type", "Meals", "% Share", `Cost Share (${PAYMENT_CONFIG.code})`, `Per Meal (${PAYMENT_CONFIG.code})`]],
+      body: mealBody,
+      headStyles: { fillColor: [79, 70, 229], textColor: 255, fontSize: 9, fontStyle: "bold", cellPadding: 3 },
+      bodyStyles: { fontSize: 9, cellPadding: 3 },
+      alternateRowStyles: { fillColor: [238, 242, 255] },
+      columnStyles: {
+        0: { cellWidth: 36 },
+        1: { halign: "center", cellWidth: 18 },
+        2: { halign: "center", cellWidth: 20 },
+        3: { halign: "right",  cellWidth: 45 },
+        4: { halign: "right",  fontStyle: "bold", cellWidth: 45 },
+      },
+    });
+
+    // ── Footer on every page ─────────────────────────────────────────────
+    const totalPages = (doc.internal as any).getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      // Footer strip
+      doc.setFillColor(248, 250, 252);
+      doc.rect(0, H - 14, W, 14, "F");
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.25);
+      doc.line(0, H - 14, W, H - 14);
+      // Left text
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.text(`NutraTenant  |  ${orgName}  |  Goods Cost Report  |  CONFIDENTIAL`, ML, H - 6);
+      // Page badge
+      doc.setFillColor(79, 70, 229);
+      doc.roundedRect(MR - 20, H - 11.5, 20, 7, 1.5, 1.5, "F");
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Page ${p} / ${totalPages}`, MR - 10, H - 6.8, { align: "center" });
+    }
+
+    doc.save(`goods-cost-report-${orgSlug}-${now.toISOString().slice(0, 10)}.pdf`);
+  }
+
   function removeUpload(uploadId: string) {
     setUploads(prev => prev.filter(u => u.id !== uploadId));
   }
@@ -1875,7 +2127,7 @@ export default function CostGenerationPage() {
 
                 <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-4 py-3">
                   <Button variant="secondary" size="sm" onClick={handleReset}>Reset</Button>
-                  <Button size="sm" icon={Calculator}>Generate Cost Report</Button>
+                  <Button size="sm" icon={Calculator} onClick={generateReport}>Generate Report</Button>
                 </div>
                 </>
                 )}

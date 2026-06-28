@@ -65,7 +65,6 @@ function buildFullNav(base: string): NavSection[] {
       items: [
         { label: "Analytics",         icon: BarChart3,       href: `${base}/analytics`        },
         { label: "Goods Cost",        icon: Calculator,      href: `${base}/goods-cost`       },
-        { label: "Customers",         icon: Users,           href: `${base}/customers`        },
         { label: "Ingredients",       icon: Package,         href: `${base}/ingredients`      },
         { label: "Meal Plans",        icon: ClipboardList,   href: `${base}/plans`            },
         { label: "Members",           icon: Users,           href: `${base}/members`          },
@@ -211,8 +210,9 @@ function MealServiceShellInner({ children }: { children: ReactNode }) {
   const { orgSlug } = useParams<{ orgSlug: string }>();
   const { currentUser } = usePreviewUser();
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed,      setIsCollapsed]      = useState(false);
+  const [isMobileOpen,     setIsMobileOpen]     = useState(false);
+  const [helpDismissed,    setHelpDismissed]    = useState(false);
 
   const base = `/org/${orgSlug}/meal-service`;
   const sections = buildFullNav(base);
@@ -314,11 +314,21 @@ function MealServiceShellInner({ children }: { children: ReactNode }) {
         </nav>
 
         {/* Need Help? */}
-        {!isCollapsed && (
+        {!isCollapsed && !helpDismissed && (
           <div className="mx-3 mb-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <div className="mb-1.5 flex items-center gap-2">
-              <LifeBuoy className="h-4 w-4 text-indigo-400" strokeWidth={1.8} />
-              <span className="text-xs font-semibold text-slate-700">Need Help?</span>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <LifeBuoy className="h-4 w-4 text-indigo-400" strokeWidth={1.8} />
+                <span className="text-xs font-semibold text-slate-700">Need Help?</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHelpDismissed(true)}
+                className="rounded p-0.5 text-slate-300 transition-colors hover:bg-slate-200 hover:text-slate-500"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
             <p className="mb-2.5 text-[11px] leading-relaxed text-slate-500">
               Contact support or request access to a new application.
