@@ -90,7 +90,7 @@ function buildNavSections(orgSlug: string): OrgNavSection[] {
       label: "Services",
       roles: ["owner", "admin", "moderator", "member"],
       items: [
-        { label: "Meal Service", icon: UtensilsCrossed, href: `${base}/meal-service/plans`, roles: ["owner", "admin", "moderator", "member"] },
+        { label: "Meal Service", icon: UtensilsCrossed, href: `${base}/meal-service/dashboard`, roles: ["owner", "admin", "moderator", "member"] },
       ],
     },
   ];
